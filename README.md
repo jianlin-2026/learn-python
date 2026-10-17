@@ -4,6 +4,8 @@
 
 无需安装 Python，无需联网，**双击 `index.html` 就能开始学习**。
 
+> 🌐 **线上地址**：https://jianlin-2026.github.io/learn-python/
+
 ---
 
 ## ✨ 功能特性
