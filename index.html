@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>学 Python · 从零开始的互动教程</title>
+<meta name="description" content="零依赖、可离线打开的 Python 入门教程：13 章课程 + 在线运行代码 + 自动判题 + 进度记录。">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐍</text></svg>">
+</head>
+<body>
+
+<header class="app-header">
+  <button class="menu-btn" id="menuBtn" aria-label="展开目录">☰ 目录</button>
+  <a class="logo" href="#/home"><span class="snake">🐍</span> 学 Python <small>互动教程 · 离线可用</small></a>
+  <nav class="top-nav" id="topNav">
+    <a href="#/home" data-nav="home">首页</a>
+    <a href="#/learn/c1" data-nav="learn">课程</a>
+    <a href="#/cheatsheet" data-nav="cheatsheet">速查表</a>
+    <a href="#/playground" data-nav="playground">练习场</a>
+    <button class="theme-btn" id="themeBtn" title="切换深色 / 浅色">🌙 深色</button>
+  </nav>
+</header>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main" id="view"></main>
+</div>
+
+<footer class="site-foot" id="foot"></footer>
+
+<script src="assets/js/pylexer.js"></script>
+<script src="assets/js/pyparser.js"></script>
+<script src="assets/js/pyvalues.js"></script>
+<script src="assets/js/pybuiltins.js"></script>
+<script src="assets/js/pyinterp.js"></script>
+<script src="assets/js/content.js"></script>
+<script src="assets/js/cheatsheet.js"></script>
+<script src="assets/js/editor.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
