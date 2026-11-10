@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>课程内容校验</title>
+<style>body{font:14px/1.6 Consolas,"Microsoft YaHei",monospace;padding:16px;max-width:1100px}h1{font-size:20px}pre{white-space:pre-wrap;background:#f5f5f5;padding:8px;border-radius:6px}.bad{color:#c0392b}.ok{color:#1e8449}</style>
+</head>
+<body>
+<h1>课程内容校验（sections[].code 与 exercises[].solution）</h1>
+<pre id="summary">运行中…</pre>
+<pre id="failures"></pre>
+<script src="assets/js/pylexer.js"></script>
+<script src="assets/js/pyparser.js"></script>
+<script src="assets/js/pyvalues.js"></script>
+<script src="assets/js/pybuiltins.js"></script>
+<script src="assets/js/pyinterp.js"></script>
+<script src="assets/js/content.js"></script>
+<script>
+(function () {
+  'use strict';
+  var failures = [];
+  var stats = { codeSections: 0, codeOk: 0, errSections: 0, errOk: 0, exercises: 0, exOk: 0, runOnly: 0, runOnlyOk: 0 };
+
+  function normalize(text) {
+    return String(text).replace(/\r/g, '').replace(/[ \t]+$/gm, '').replace(/\n+$/, '');
+  }
+  function log(kind, where, detail) {
+    failures.push({ kind: kind, where: where, detail: detail });
+  }
+  async function run(code, inputs) {
+    var feed = (inputs || []).slice();
+    return await window.PyRuntime.run(code, {
+      timeLimit: 6000,
+      onInput: function () { return feed.length ? feed.shift() : ''; }
+    });
+  }
+  function stripEcho(res) { return window.PyRuntime.stripInputEcho(res.output, res.io); }
+
+  async function checkCodeSection(chapter, index, section) {
+    var where = chapter.id + ' 第' + (index + 1) + '段 ' + (section.caption || '');
+    var inputs = section.inputs || (section.runInput ? [section.runInput] : []);
+    if (!section.expect && !section.expectError) {
+      stats.runOnly++;
+      var rr = await run(section.code, inputs);
+      if (!rr.ok) log('运行报错', where, rr.error.type + ': ' + rr.error.message + '\n代码:\n' + section.code);
+      else stats.runOnlyOk++;
+      return;
+    }
+    stats.codeSections++;
+    var res = await run(section.code, inputs);
+    if (section.expectError) {
+      stats.errSections++;
+      var want = section.expectError;
+      var gotType = res.error ? res.error.type : '';
+      var hit = gotType === want || String(res.error && res.error.traceback || '').indexOf(want) >= 0;
+      if (hit) { stats.errOk++; return; }
+      log('expectError 不符', where, '想要 ' + want + '\n实际: ' + (res.ok ? '没有报错' : res.error.type + ': ' + res.error.message));
+      return;
+    }
+    if (!res.ok) {
+      log('运行报错', where, res.error.type + ': ' + res.error.message + '\n代码:\n' + section.code);
+      return;
+    }
+    var got = normalize(stripEcho(res));
+    if (got === normalize(section.expect)) { stats.codeOk++; return; }
+    log('输出不符', where, '期望: ' + JSON.stringify(section.expect) + '\n实际: ' + JSON.stringify(got) + '\n代码:\n' + section.code);
+  }
+
+  async function checkExercise(chapter, ex) {
+    stats.exercises++;
+    var where = ex.id + ' ' + ex.title;
+    if (!ex.solution) { log('missing', where, '没有 solution'); return; }
+    if (!ex.check) { log('missing', where, '没有 check'); return; }
+    var c = ex.check;
+    var code = ex.solution;
+    if (c.type === 'tests' && c.tests) code = code + '\n' + c.tests;
+    var res = await run(code, c.inputs);
+    if (!res.ok) {
+      log('解答运行报错', where, res.error.type + ': ' + res.error.message + '\n代码:\n' + code);
+      return;
+    }
+    var got = normalize(stripEcho(res));
+    var ok = false, detail = '';
+    if (c.type === 'output') {
+      ok = got === normalize(c.expect);
+      if (!ok) detail = '期望: ' + JSON.stringify(c.expect) + '\n实际: ' + JSON.stringify(got);
+    } else if (c.type === 'lines') {
+      var lines = got === '' ? [] : got.split('\n');
+      var wantLines = c.lines || 1;
+      ok = lines.length === wantLines;
+      if (ok && c.contains) {
+        for (var i = 0; i < c.contains.length; i++) {
+          var hit = false;
+          for (var j = 0; j < lines.length; j++) if (lines[j].indexOf(c.contains[i]) >= 0) hit = true;
+          if (!hit) { ok = false; detail += '缺少关键词: ' + c.contains[i] + '\n'; }
+        }
+      }
+      if (!ok && !detail) detail = '需要 ' + wantLines + ' 行，实际 ' + lines.length + ' 行\n实际: ' + JSON.stringify(got);
+    } else if (c.type === 'tests') {
+      ok = true;   // 跑通即可（隐藏测试没有崩）
+    } else {
+      detail = '未知 check 类型: ' + c.type;
+    }
+    if (ok) stats.exOk++;
+    else log('判题不符', where, detail + '\n代码:\n' + code);
+  }
+
+  async function validate() {
+    var course = window.PY_COURSE;
+    if (!course || !course.chapters || !course.chapters.length) {
+      log('结构', 'PY_COURSE', '没有拿到课程数据');
+    } else {
+      var seenCh = {}, seenEx = {};
+      for (var ci = 0; ci < course.chapters.length; ci++) {
+        var ch = course.chapters[ci];
+        if (seenCh[ch.id]) log('结构', ch.id, '章 id 重复');
+        seenCh[ch.id] = true;
+        if (!ch.title || !ch.summary || !ch.goals || !ch.goals.length) log('结构', ch.id, '缺少 title/summary/goals');
+        if (!ch.sections || !ch.sections.length) log('结构', ch.id, '没有 sections');
+        if (!ch.exercises || !ch.exercises.length) log('结构', ch.id, '没有 exercises');
+        for (var si = 0; si < (ch.sections || []).length; si++) {
+          var sec = ch.sections[si];
+          var known = { h: 1, p: 1, code: 1, tip: 1, warn: 1, table: 1, list: 1, quote: 1 };
+          if (!known[sec.type]) { log('结构', ch.id + ' 第' + (si + 1) + '段', '未知 section 类型: ' + sec.type); continue; }
+          if (sec.type === 'code') await checkCodeSection(ch, si, sec);
+          if (sec.type === 'h' && !sec.text) log('结构', ch.id, '标题为空');
+          if ((sec.type === 'tip' || sec.type === 'warn') && (!sec.title || !sec.text)) log('结构', ch.id, 'tip/warn 不完整');
+          if (sec.type === 'table' && (!sec.head || !sec.rows)) log('结构', ch.id, 'table 不完整');
+        }
+        for (var ei = 0; ei < (ch.exercises || []).length; ei++) {
+          var ex = ch.exercises[ei];
+          if (seenEx[ex.id]) log('结构', ex.id, '练习 id 重复');
+          seenEx[ex.id] = true;
+          if (!ex.title || !ex.prompt) log('结构', ex.id, '缺少 title/prompt');
+          if (!ex.hint) log('结构', ex.id, '缺少 hint');
+          await checkExercise(ch, ex);
+        }
+      }
+    }
+    render();
+  }
+
+  function render() {
+    var summary = '[代码块] 正常输出 ' + stats.codeOk + '/' + stats.codeSections +
+      '　[报错示例] ' + stats.errOk + '/' + stats.errSections +
+      '　[练习解答] ' + stats.exOk + '/' + stats.exercises +
+      '　[输入示例] ' + stats.runOnlyOk + '/' + stats.runOnly +
+      '\n问题数量: ' + failures.length;
+    document.getElementById('summary').textContent = summary;
+    var out = failures.map(function (f) {
+      return '❌ [' + f.kind + '] ' + f.where + '\n' + f.detail + '\n-----------------------------';
+    }).join('\n');
+    document.getElementById('failures').textContent = out;
+    window.__validate = { stats: stats, failures: failures, done: true };
+  }
+
+  validate().catch(function (e) {
+    log('异常', 'validate', String(e && e.stack || e));
+    render();
+    window.__validate.done = true;
+  });
+})();
+</script>
+</body>
+</html>
