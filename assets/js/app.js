@@ -165,8 +165,7 @@
         var tail = out.textContent;
         if (tail && !/\n$/.test(tail)) appendOut(out, '\n');
         appendOut(out, res.error.traceback + '\n');
-        if (res.error.kind === 'syntax') appendOut(out, '（语法错误：程序还没有开始运行就失败了）\n');
-        if (res.error.kind === 'timeout') appendOut(out, '（提示：检查 while 的条件，或者代码里有没有写死循环）\n');
+        appendOut(out, explainError(res.error));
       }
       if (opts.onDone) opts.onDone(res);
       if (opts.onEnd) opts.onEnd(res);
@@ -210,7 +209,63 @@
     var stats = totalStats();
     var foot = el('div', 'sidebar-foot');
     foot.innerHTML = '已完成 <b>' + stats.done + '</b> / ' + stats.all + ' 个练习<br>进度自动保存在本机浏览器里。';
+    var backupRow = el('div', 'backup-row');
+    var bkBtn = el('button', 'mini-btn', '⬇ 备份进度');
+    bkBtn.title = '把学习进度和练习代码导出成一个 JSON 文件，可换设备恢复';
+    bkBtn.addEventListener('click', exportBackup);
+    var rsBtn = el('button', 'mini-btn', '⬆ 恢复');
+    rsBtn.title = '从备份文件恢复进度（会把当前进度覆盖掉）';
+    rsBtn.addEventListener('click', importBackup);
+    backupRow.appendChild(bkBtn);
+    backupRow.appendChild(rsBtn);
+    foot.appendChild(backupRow);
     side.appendChild(foot);
+  }
+
+  /* ---------------- 进度备份 / 恢复 ---------------- */
+  function exportBackup() {
+    var data = {};
+    try {
+      for (var i = 0; i < global.localStorage.length; i++) {
+        var k = global.localStorage.key(i);
+        if (k && k.indexOf('pylearn.') === 0) data[k] = global.localStorage.getItem(k);
+      }
+    } catch (e) { /* file:// 沙箱下忽略 */ }
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    var d = new Date();
+    a.download = 'pylearn-backup-' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+
+  function importBackup() {
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'application/json,.json';
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      if (!f) return;
+      var fr = new FileReader();
+      fr.onload = function () {
+        var data;
+        try { data = JSON.parse(String(fr.result)); } catch (e) { global.alert('文件不是有效的备份 JSON'); return; }
+        var n = 0;
+        Object.keys(data).forEach(function (k) {
+          if (k.indexOf('pylearn.') !== 0) return;
+          saveText(k, typeof data[k] === 'string' ? data[k] : JSON.stringify(data[k]));
+          n++;
+        });
+        progress = loadJSON(STORE_KEY, { chapters: {} });
+        if (global.PYApp && global.PYApp.route) global.PYApp.route();
+        global.alert('已恢复 ' + n + ' 条数据，刷新后生效。');
+      };
+      fr.readAsText(f, 'utf-8');
+    });
+    inp.click();
   }
 
   /* ---------------- 顶栏导航 ---------------- */
@@ -613,7 +668,7 @@
         return {
           pass: false,
           title: '代码运行出错了，先修好它：',
-          detail: res.error.traceback,
+          detail: res.error.traceback + explainError(res.error),
           hint: errorHint(res.error),
           wasNew: wasNew
         };
@@ -687,6 +742,67 @@
     return hints[err.type] || '';
   }
 
+  /* 常见报错 → 中文解读（入门者最需要的功能） */
+  var ERROR_RULES = [
+    [/这里需要 “:”/, '少了冒号：if / elif / else / for / while / def / class 这些语句的结尾都要一个冒号（:）。'],
+    [/这里需要 “\)/, '这一行少了一个右括号 “)”，检查括号是否成对。'],
+    [/这里需要 “\]”/, '下标访问少了右方括号 “]”。'],
+    [/这里需要一个缩进的代码块/, '冒号（:）后面要跟一个缩进的代码块：同一层的代码用同样的缩进，建议 4 个空格。'],
+    [/缩进块里至少要写一行代码/, '冒号后面的缩进块里至少要写一行代码，先写个 pass 占位也行。'],
+    [/不能给左边这个表达式赋值/, '“=” 的左边放错了：左边只能是变量、列表元素、字典键这类「能存放东西」的地方。'],
+    [/这里需要一个名字/, '这里应该写一个名字（变量名/函数名），却出现了别的符号。'],
+    [/这一行还没写完，或者多了一个符号/, '这一行写法不完整：比如少了运算符两边的操作数，或多了个孤零零的符号。'],
+    [/本练习环境暂不支持/, '用到了这个迷你解释器还没支持的语法；可以换个写法，或以后去 python.org 装正式版 Python 试。'],
+    [/name ['"]([^'"]+)['"] is not defined/, '名字 $1 还没有被定义：检查拼写（Python 区分大小写），或者有没有忘记先赋值 / def。'],
+    [/is not defined/, '有个名字没有被定义，检查拼写或是否忘了定义。'],
+    [/invalid syntax/, '这一行（或上一行）的写法不符合语法：常见是少了冒号、括号/引号没配对、用了中文标点。'],
+    [/unexpected indent/, '这一行缩进得太多了：只有 if / for / def 等冒号语句的下一行才需要缩进。'],
+    [/expected an indented block/, '冒号（:）后面要跟一个缩进的代码块，至少缩进 4 个空格。'],
+    [/missing parenthes|was never closed/, '括号没有配对：检查这一行是否少写了右括号。'],
+    [/EOL while scanning|unterminated string/, '字符串引号没有闭合：前后要使用同一对引号（"…" 或 \u2018…\u2019）。'],
+    [/invalid literal for int\(\) with base 10/, 'int() 只能转换长得像整数的字符串（如 "42"），"3.5" 或 "abc" 都不行。'],
+    [/could not convert string to float/, 'float() 收到的不是合法的数字，先检查字符串内容。'],
+    [/unsupported operand type\(s\)/, '两种类型不能这样运算：input() 拿到的是字符串，参与计算前要用 int() 或 float() 转成数字。'],
+    [/can only concatenate/, '只有字符串之间能用 + 拼接，其他的要先用 str() 转换。'],
+    [/(list|string|tuple) index out of range/, '下标超出范围了：这个序列没有那么多元素，用 len() 看看长度。'],
+    [/division by zero|modulo by zero/, '除数是 0：除法和取余的右边不能为 0，先判断一下。'],
+    [/object is not subscriptable/, '这种类型的值不能用 [] 取下标（比如字典取值要用键，数字不能切片）。'],
+    [/object is not callable/, '这里不是函数，不能加 () 调用；检查变量名是不是和函数名重了。'],
+    [/missing \d+ required positional argument|takes .* but \d+ (were|was) given/, '调用函数时参数个数不对：数一数定义里有几个参数、传了几个。'],
+    [/has no attribute/, '这个对象没有这个属性/方法，检查拼写或用 type() 查看它的类型。'],
+    [/object is not iterable/, '这个值不能被 for 遍历（不是列表/字符串/字典等），检查变量拿错了没有。'],
+    [/not supported between instances/, '两种类型之间不能比较/排序（比如数字和字符串一起 sort），先把类型统一。'],
+    [/keyword can.t be. an expression|can.t assign to/, '赋值语句写得不合法：= 左边只能是变量、列表元素、字典键等。'],
+    [/invalid syntax. Maybe you forgot a comma/, '少了一个逗号：在列表/函数调用里，多个内容之间要用逗号隔开。']
+  ];
+
+  function explainError(err) {
+    if (!err) return '';
+    if (err.kind === 'stopped') return '';
+    if (err.kind === 'timeout') {
+      return '\n⏰ 程序运行太久了，已自动停止。常见原因是 while 的条件一直为真（死循环），检查条件会不会慢慢变成 False，必要时在循环里加 break。\n';
+    }
+    var msg = String(err.message || '');
+    var tip = '';
+    for (var i = 0; i < ERROR_RULES.length; i++) {
+      var m = msg.match(ERROR_RULES[i][0]);
+      if (m) {
+        tip = ERROR_RULES[i][1].replace(/\$1/g, m[1] || '');
+        break;
+      }
+    }
+    var parts = [];
+    if (err.kind === 'syntax') parts.push('这是语法错误，程序还没运行就失败了');
+    if (err.line) parts.push('问题出在第 ' + err.line + ' 行附近');
+    if (tip) parts.push(tip);
+    else {
+      var g = errorHint(err);
+      if (g) parts.push(g.replace(/^提示：/, ''));
+    }
+    if (!parts.length) parts.push('错误类型是 ' + (err.type || '未知') + '，把报错内容复制到搜索引擎/问 AI 也能找到答案');
+    return '\n💡 中文解读：' + parts.map(function (p) { return String(p).replace(/[。\s]+$/, ''); }).join('；') + '。\n';
+  }
+
   /* ---------------- 速查表 ---------------- */
   function renderCheatsheet() {
     var view = document.getElementById('view');
@@ -725,6 +841,12 @@
         codeEl.textContent = it.c;
         item.appendChild(codeEl);
         if (it.n) item.appendChild(el('div', 'ci-note', it.n));
+        var cp = el('button', 'ci-copy', '复制');
+        cp.title = '复制这段代码写法';
+        cp.addEventListener('click', function () {
+          copyText(it.c, cp, '复制');
+        });
+        item.appendChild(cp);
         item.setAttribute('data-text', (it.t + ' ' + it.c + ' ' + (it.n || '') + ' ' + g.title).toLowerCase());
         card.appendChild(item);
       });
@@ -788,11 +910,15 @@
     var stopBtn = el('button', 'btn', '■ 停止');
     var clearBtn = el('button', 'btn ghost', '🧹 清空输出');
     var copyBtn = el('button', 'btn ghost', '复制代码');
+    var dlBtn = el('button', 'btn ghost', '⬇ 下载 .py');
+    var importBtn = el('button', 'btn ghost', '📂 打开 .py 文件');
     toolbar.appendChild(sel);
     toolbar.appendChild(runBtn);
     toolbar.appendChild(stopBtn);
     toolbar.appendChild(clearBtn);
     toolbar.appendChild(copyBtn);
+    toolbar.appendChild(importBtn);
+    toolbar.appendChild(dlBtn);
     var statusWrap = el('span', 'badge');
     statusWrap.innerHTML = '<span class="status-dot" id="pgDot"></span> 就绪';
     toolbar.appendChild(statusWrap);
@@ -835,6 +961,32 @@
     });
     clearBtn.addEventListener('click', function () { runner.out.textContent = ''; });
     copyBtn.addEventListener('click', function () { copyText(ed.getValue(), copyBtn, '复制代码'); });
+    dlBtn.addEventListener('click', function () {
+      var blob = new Blob([ed.getValue()], { type: 'text/x-python' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'playground.py';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    });
+    importBtn.addEventListener('click', function () {
+      var inp = document.createElement('input');
+      inp.type = 'file';
+      inp.accept = '.py,text/x-python';
+      inp.addEventListener('change', function () {
+        var f = inp.files && inp.files[0];
+        if (!f) return;
+        var fr = new FileReader();
+        fr.onload = function () {
+          ed.setValue(String(fr.result));
+          saveText(CODE_KEY + 'playground', String(fr.result));
+        };
+        fr.readAsText(f, 'utf-8');
+      });
+      inp.click();
+    });
     sel.addEventListener('change', function () {
       var i = parseInt(sel.value, 10);
       if (i > 0 && PLAY_SAMPLES[i]) {
