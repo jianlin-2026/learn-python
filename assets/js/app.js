@@ -1,5 +1,5 @@
 /* ==========================================================================
- * app.js —— 页面路由、课程渲染、运行 / 判题、进度与主题
+ * app.js —— 页面路由、课程渲染、运行 / 判题、进度、热力图、分享图与主题
  * 依赖：pylexer / pyparser / pyvalues / pybuiltins / pyinterp / content / cheatsheet / editor
  * ========================================================================== */
 (function (global) {
@@ -10,6 +10,7 @@
   var STORE_KEY = 'pylearn.progress.v1';
   var CODE_KEY = 'pylearn.code.';
   var THEME_KEY = 'pylearn.theme';
+  var PROFILE_KEY = 'pylearn.profile.v1';
 
   var BADGES = [
     { days: 3, icon: '🌱', name: '热身起步' },
@@ -23,6 +24,9 @@
   ];
 
   var progress = loadJSON(STORE_KEY, { chapters: {} });
+  var profile = null;     // 分享卡片昵称 / 头像（独立存储）
+  var avatarImg = null;
+  var lastActivityAt = Date.now();
   var editors = {};       // exerciseId -> editor
   var homeChapters = {};
   COURSE.chapters.forEach(function (c) { homeChapters[c.id] = c; });
@@ -190,6 +194,60 @@
     return list;
   }
   function remindOn() { return progress.remindDue !== false; }
+
+  /* ---------------- 学习时长统计 ---------------- */
+  function markActive() { lastActivityAt = Date.now(); }
+  function isStudyPage() {
+    var h = global.location.hash || '';
+    return h.indexOf('#/learn/') === 0 || h.indexOf('#/playground') === 0;
+  }
+  function addStudy(seconds) {
+    var key = todayStr();
+    // 学习时长每 10 秒写入一次，先合并磁盘上的最新进度，避免覆盖其他标签页的操作
+    var disk = loadJSON(STORE_KEY, null);
+    var base = (disk && typeof disk === 'object' && !Array.isArray(disk)) ? disk : progress;
+    if (!base.study || typeof base.study !== 'object') base.study = {};
+    base.study[key] = (Number(base.study[key]) || 0) + seconds;
+    saveJSON(STORE_KEY, base);
+    progress.study = base.study;
+  }
+  function startStudyTimer() {
+    ['pointerdown', 'pointermove', 'keydown', 'touchstart'].forEach(function (ev) {
+      document.addEventListener(ev, markActive, { passive: true });
+    });
+    global.addEventListener('scroll', markActive, { passive: true });
+    var lastTick = Date.now();
+    global.setInterval(function () {
+      var now = Date.now();
+      var delta = Math.max(0, Math.min(30, Math.round((now - lastTick) / 1000)));
+      lastTick = now;
+      if (document.hidden) return;
+      if (!document.hasFocus()) return;
+      if (now - lastActivityAt > 5 * 60 * 1000) return;
+      if (!isStudyPage()) return;
+      if (delta > 0) addStudy(delta);
+    }, 10000);
+  }
+  function studySeconds(date) {
+    return Number(progress.study && progress.study[date]) || 0;
+  }
+  function fmtStudy(sec) {
+    sec = Math.max(0, Math.round(sec || 0));
+    if (!sec) return '0 分钟';
+    if (sec < 60) return '不到 1 分钟';
+    var m = Math.round(sec / 60);
+    if (m < 60) return m + ' 分钟';
+    var h = Math.floor(m / 60), r = m % 60;
+    return h + ' 小时' + (r ? ' ' + r + ' 分' : '');
+  }
+  function studyLevel(sec) {
+    if (!sec) return 0;
+    var m = sec / 60;
+    if (m < 10) return 1;
+    if (m < 30) return 2;
+    if (m < 60) return 3;
+    return 4;
+  }
   function checkBadges(streakVal) {
     if (!progress.badges) progress.badges = {};
     var newly = [];
@@ -226,6 +284,41 @@
   }
 
   /* ---------------- 徽章分享图 ---------------- */
+  function getProfile() {
+    if (!profile) {
+      profile = loadJSON(PROFILE_KEY, { name: '', avatar: '' });
+      if (!profile || typeof profile !== 'object') profile = {};
+      if (typeof profile.name !== 'string') profile.name = '';
+      if (typeof profile.avatar !== 'string') profile.avatar = '';
+    }
+    return profile;
+  }
+  function firstChar(value) {
+    var s = String(value || '');
+    if (!s) return '';
+    if (s.codePointAt) {
+      var cp = s.codePointAt(0);
+      return String.fromCodePoint ? String.fromCodePoint(cp) : s.charAt(0);
+    }
+    return s.charAt(0);
+  }
+  function ensureAvatar(cb) {
+    var prof = getProfile();
+    if (!prof.avatar) {
+      avatarImg = null;
+      if (cb) cb();
+      return;
+    }
+    if (avatarImg && avatarImg.src === prof.avatar && avatarImg.complete) {
+      if (cb) cb();
+      return;
+    }
+    var img = new Image();
+    img.onload = function () { avatarImg = img; if (cb) cb(); };
+    img.onerror = function () { avatarImg = null; if (cb) cb(); };
+    img.src = prof.avatar;
+    avatarImg = img;
+  }
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -235,9 +328,9 @@
     ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
   }
-  function drawShareCard() {
+  function drawShareCard(canvas) {
     var W = 1080, H = 1350;
-    var cv = document.createElement('canvas');
+    var cv = canvas || document.createElement('canvas');
     cv.width = W;
     cv.height = H;
     var ctx = cv.getContext('2d');
@@ -257,17 +350,52 @@
     ctx.beginPath(); ctx.arc(90, 1260, 260, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
 
-    ctx.fillStyle = 'rgba(255,255,255,.9)';
-    ctx.font = '600 34px ' + font;
-    ctx.fillText('🐍 学 Python', 80, 112);
-    ctx.textAlign = 'right';
+    var prof = getProfile();
+    var displayName = String(prof.name || 'Python 学习者').slice(0, 12);
+    var as = 92, ax = 80, ay = 58;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(ax + as / 2, ay + as / 2, as / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    if (avatarImg && avatarImg.complete && avatarImg.naturalWidth) {
+      var iw = avatarImg.naturalWidth, ih = avatarImg.naturalHeight;
+      var asc = Math.max(as / iw, as / ih);
+      var adw = iw * asc, adh = ih * asc;
+      ctx.drawImage(avatarImg, ax + (as - adw) / 2, ay + (as - adh) / 2, adw, adh);
+    } else {
+      ctx.fillStyle = 'rgba(255,212,59,.16)';
+      ctx.fillRect(ax, ay, as, as);
+      var initial = (firstChar(displayName) || 'P').toUpperCase();
+      ctx.fillStyle = '#ffd43b';
+      ctx.font = '700 46px ' + font;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(initial, ax + as / 2, ay + as / 2 + 2);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+    }
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(ax + as / 2, ay + as / 2, as / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,.38)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 40px ' + font;
+    ctx.fillText(displayName, 200, 100);
     ctx.fillStyle = 'rgba(255,255,255,.5)';
-    ctx.font = '400 26px ' + font;
-    ctx.fillText('互动教程 · 打卡分享', 1000, 110);
+    ctx.font = '400 24px ' + font;
+    ctx.fillText('学 Python · 互动教程', 200, 138);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(255,255,255,.38)';
+    ctx.font = '400 24px ' + font;
+    ctx.fillText('打卡分享', 1000, 104);
     ctx.textAlign = 'left';
     ctx.strokeStyle = 'rgba(255,255,255,.16)';
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(80, 156); ctx.lineTo(1000, 156); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(80, 180); ctx.lineTo(1000, 180); ctx.stroke();
 
     var streak = streakStats(getGoal());
     var stats = totalStats();
@@ -372,8 +500,10 @@
   }
   function openShare() {
     closeShare();
-    var canvas = drawShareCard();
+    closeProfile();
+    var canvas = document.createElement('canvas');
     canvas.className = 'share-canvas';
+    drawShareCard(canvas);
     var overlay = el('div', 'share-overlay');
     var panel = el('div', 'share-panel');
     var head = el('div', 'share-head');
@@ -390,13 +520,147 @@
       toast('已生成 PNG，请查看浏览器下载');
     });
     actions.appendChild(saveBtn);
+    var editBtn = el('button', 'btn small ghost', '✏️ 改昵称/头像');
+    editBtn.addEventListener('click', function () {
+      openProfile(function () { openShare(); });
+    });
+    actions.appendChild(editBtn);
     actions.appendChild(el('span', 'share-hint', '1080 × 1350 PNG · 可直接发朋友圈或打卡群'));
     panel.appendChild(actions);
     overlay.appendChild(panel);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) closeShare(); });
     document.body.appendChild(overlay);
-    shareDom = { overlay: overlay };
+    shareDom = { overlay: overlay, canvas: canvas };
+    ensureAvatar(function () {
+      if (shareDom && shareDom.canvas === canvas) drawShareCard(canvas);
+    });
     document.addEventListener('keydown', shareKey);
+  }
+
+  /* ---------------- 昵称 / 头像设置 ---------------- */
+  var profileDom = null;
+  var pendingAvatar = '';
+  function renderProfilePreview() {
+    if (!profileDom) return;
+    var box = profileDom.avatar;
+    var has = !!pendingAvatar;
+    var initial = profileDom.input ? firstChar(profileDom.input.value.trim()).toUpperCase() : '';
+    box.style.backgroundImage = has ? 'url("' + pendingAvatar + '")' : '';
+    box.textContent = has ? '' : (initial || 'P');
+    box.classList.toggle('has-img', has);
+  }
+  function closeProfile() {
+    if (!profileDom) return;
+    if (profileDom.overlay.parentNode) profileDom.overlay.parentNode.removeChild(profileDom.overlay);
+    document.removeEventListener('keydown', profileKey);
+    profileDom = null;
+  }
+  function profileKey(e) {
+    if (e.key === 'Escape') closeProfile();
+  }
+  function openProfile(afterSave) {
+    closeProfile();
+    closeShare();
+    var prof = getProfile();
+    pendingAvatar = prof.avatar || '';
+    var overlay = el('div', 'share-overlay');
+    var panel = el('div', 'share-panel profile-panel');
+    var head = el('div', 'share-head');
+    head.appendChild(el('b', null, '✏️ 分享卡片资料'));
+    var closeBtn = el('button', 'btn small ghost', '✕ 关闭');
+    closeBtn.addEventListener('click', closeProfile);
+    head.appendChild(closeBtn);
+    panel.appendChild(head);
+
+    panel.appendChild(el('label', 'profile-label', '昵称'));
+    var nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'profile-input';
+    nameInput.maxLength = 12;
+    nameInput.placeholder = 'Python 学习者';
+    nameInput.value = prof.name || '';
+    panel.appendChild(nameInput);
+
+    panel.appendChild(el('label', 'profile-label', '头像'));
+    var avatarRow = el('div', 'profile-avatar-row');
+    var avatar = el('div', 'profile-avatar', '🐍');
+    var chooser = el('button', 'btn small', '🖼 选择图片');
+    var removeBtn = el('button', 'btn small ghost', '移除头像');
+    var file = document.createElement('input');
+    file.type = 'file';
+    file.accept = 'image/png,image/jpeg,image/webp';
+    file.className = 'hidden';
+    avatarRow.appendChild(avatar);
+    avatarRow.appendChild(chooser);
+    avatarRow.appendChild(removeBtn);
+    panel.appendChild(avatarRow);
+    panel.appendChild(file);
+    panel.appendChild(el('p', 'profile-note', '图片会裁剪为正方形并压缩到 256×256，只保存在本机浏览器，不会上传；导出备份时会一并包含。'));
+
+    var actions = el('div', 'btn-row');
+    var saveBtn = el('button', 'btn primary', '保存资料');
+    var cancelBtn = el('button', 'btn ghost', '取消');
+    actions.appendChild(saveBtn);
+    actions.appendChild(cancelBtn);
+    panel.appendChild(actions);
+
+    overlay.appendChild(panel);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeProfile(); });
+    document.body.appendChild(overlay);
+    profileDom = { overlay: overlay, avatar: avatar, input: nameInput };
+    renderProfilePreview();
+    nameInput.focus();
+    nameInput.addEventListener('input', renderProfilePreview);
+
+    chooser.addEventListener('click', function () { file.click(); });
+    file.addEventListener('change', function () {
+      var f = file.files && file.files[0];
+      if (!f) return;
+      if (!/^image\/(png|jpeg|webp)$/.test(f.type)) {
+        toast('请选择 PNG / JPG / WebP 图片');
+        return;
+      }
+      if (f.size > 8 * 1024 * 1024) {
+        toast('图片请小于 8MB');
+        return;
+      }
+      var fr = new FileReader();
+      fr.onload = function () {
+        var im = new Image();
+        im.onload = function () {
+          var size = 256;
+          var cv = document.createElement('canvas');
+          cv.width = size;
+          cv.height = size;
+          var cx = cv.getContext('2d');
+          cx.fillStyle = '#fff';
+          cx.fillRect(0, 0, size, size);
+          var sc = Math.max(size / im.width, size / im.height);
+          var dw = im.width * sc, dh = im.height * sc;
+          cx.drawImage(im, (size - dw) / 2, (size - dh) / 2, dw, dh);
+          pendingAvatar = cv.toDataURL('image/jpeg', 0.85);
+          renderProfilePreview();
+        };
+        im.onerror = function () { toast('图片读取失败，请换一张'); };
+        im.src = String(fr.result);
+      };
+      fr.readAsDataURL(f);
+    });
+    removeBtn.addEventListener('click', function () {
+      pendingAvatar = '';
+      renderProfilePreview();
+    });
+    cancelBtn.addEventListener('click', closeProfile);
+    saveBtn.addEventListener('click', function () {
+      prof.name = nameInput.value.trim().slice(0, 12);
+      prof.avatar = pendingAvatar || '';
+      saveJSON(PROFILE_KEY, prof);
+      avatarImg = null;
+      closeProfile();
+      toast('分享卡片资料已保存');
+      if (afterSave) afterSave();
+    });
+    document.addEventListener('keydown', profileKey);
   }
 
   function findEx(exId) {
@@ -574,7 +838,7 @@
     foot.innerHTML = '已完成 <b>' + stats.done + '</b> / ' + stats.all + ' 个练习<br>进度自动保存在本机浏览器里。';
     var backupRow = el('div', 'backup-row');
     var bkBtn = el('button', 'mini-btn', '⬇ 备份进度');
-    bkBtn.title = '把学习进度和练习代码导出成一个 JSON 文件，可换设备恢复';
+    bkBtn.title = '把学习进度、学习时长、练习代码和分享卡资料导出成一个 JSON 文件，可换设备恢复';
     bkBtn.addEventListener('click', exportBackup);
     var rsBtn = el('button', 'mini-btn', '⬆ 恢复');
     rsBtn.title = '从备份文件恢复进度（会把当前进度覆盖掉）';
@@ -877,6 +1141,9 @@
     var shareBtn = el('button', 'btn small primary', '📸 生成分享图');
     shareBtn.addEventListener('click', openShare);
     shareRow.appendChild(shareBtn);
+    var profBtn = el('button', 'btn small ghost', '✏️ 昵称/头像');
+    profBtn.addEventListener('click', function () { openProfile(); });
+    shareRow.appendChild(profBtn);
     bc.appendChild(shareRow);
     var bgrid = el('div', 'badge-grid');
     BADGES.forEach(function (b) {
@@ -898,8 +1165,20 @@
 
     /* 年度学习热力图 */
     var hm = el('div', 'card');
+    var hmMode = progress.heatMode === 'time' ? 'time' : 'count';
     var hmtop = el('div', 'heat-top');
     hmtop.appendChild(el('h2', 'section-h', '🗓 学习热力图'));
+    var htools = el('div', 'heat-tools');
+    var hmode = el('div', 'heat-mode');
+    var modeCountBtn = el('button', null, '按题数');
+    var modeTimeBtn = el('button', null, '按时长');
+    modeCountBtn.type = 'button';
+    modeTimeBtn.type = 'button';
+    modeCountBtn.setAttribute('aria-label', '按完成题数着色');
+    modeTimeBtn.setAttribute('aria-label', '按学习时长着色');
+    hmode.appendChild(modeCountBtn);
+    hmode.appendChild(modeTimeBtn);
+    htools.appendChild(hmode);
     var hnav = el('div', 'heat-nav');
     var prevY = el('a', 'btn small ghost', '‹');
     prevY.href = '#/history/' + (hmYear - 1);
@@ -914,7 +1193,8 @@
     } else {
       hnav.appendChild(el('span', 'btn small ghost disabled', '›'));
     }
-    hmtop.appendChild(hnav);
+    htools.appendChild(hnav);
+    hmtop.appendChild(htools);
     hm.appendChild(hmtop);
 
     var hStart = new Date(hmYear, 0, 1);
@@ -922,7 +1202,8 @@
     var hOffset = (hStart.getDay() + 6) % 7;
     var hDays = Math.round((hEnd.getTime() - hStart.getTime()) / 86400000) + 1;
     var hWeeks = Math.ceil((hOffset + hDays) / 7);
-    var yearDone = 0, activeDays = 0;
+    var yearDone = 0, yearStudy = 0, activeDays = 0;
+    var cellData = [];
     var wkCols = ['一', '二', '三', '四', '五', '六', '日'];
 
     var hsum = el('div', 'heat-sum');
@@ -943,12 +1224,14 @@
       var hdt = new Date(hmYear, 0, 1 + hd);
       var hkey = fmtDate(hdt);
       var hcnt = (map[hkey] || []).length;
+      var hsec = studySeconds(hkey);
+      var hweek = wkCols[(hdt.getDay() + 6) % 7];
       var hcell = el('div', 'heat-cell' + (hcnt ? ' has' : ''));
-      hcell.setAttribute('data-l', hcnt === 0 ? 0 : (hcnt >= 4 ? 4 : hcnt));
-      hcell.title = hkey + '（周' + wkCols[(hdt.getDay() + 6) % 7] + '）：' + (hcnt ? hcnt + ' 题' : '没有记录');
+      cellData.push({ el: hcell, key: hkey, cnt: hcnt, sec: hsec, week: hweek });
+      yearDone += hcnt;
+      yearStudy += hsec;
+      if (hcnt || hsec) activeDays += 1;
       if (hcnt) {
-        yearDone += hcnt;
-        activeDays += 1;
         (function (kk) {
           hcell.addEventListener('click', function () { global.location.hash = '#/history/' + kk; });
         })(hkey);
@@ -958,8 +1241,6 @@
     var hPadEnd = hWeeks * 7 - hOffset - hDays;
     for (var he = 0; he < hPadEnd; he++) hgrid.appendChild(el('div', 'heat-cell empty'));
 
-    hsum.innerHTML = hmYear + ' 年完成 <b>' + yearDone + '</b> 题 · 活跃 <b>' + activeDays + '</b> 天' +
-      (yearDone ? ' · 点格子可查看当天' : '');
     hm.appendChild(hsum);
 
     var hframe = el('div', 'heat-frame');
@@ -978,14 +1259,46 @@
 
     var hlegend = el('div', 'heat-legend');
     hlegend.appendChild(el('span', null, '少'));
+    var legendCells = [];
     [0, 1, 2, 3, 4].forEach(function (l) {
       var lc = el('span', 'heat-cell');
       lc.setAttribute('data-l', l);
+      legendCells.push(lc);
       hlegend.appendChild(lc);
     });
     hlegend.appendChild(el('span', null, '多'));
+    var hmodeNote = el('span', 'heat-mode-note', '');
+    hlegend.appendChild(hmodeNote);
     hm.appendChild(hlegend);
+    hm.appendChild(el('p', 'heat-note', '学习时长：课程页 / 练习场在前台且有操作时累计，每 10 秒记一次。点有完成记录的格子可查看当天。'));
     view.appendChild(hm);
+
+    function applyHeatMode(mode, persist) {
+      hmMode = mode;
+      if (persist) {
+        progress.heatMode = mode;
+        saveJSON(STORE_KEY, progress);
+      }
+      modeCountBtn.className = mode === 'count' ? 'active' : '';
+      modeTimeBtn.className = mode === 'time' ? 'active' : '';
+      modeCountBtn.setAttribute('aria-pressed', mode === 'count' ? 'true' : 'false');
+      modeTimeBtn.setAttribute('aria-pressed', mode === 'time' ? 'true' : 'false');
+      var lv = mode === 'time'
+        ? ['0', '1–9 分钟', '10–29 分钟', '30–59 分钟', '60 分钟以上']
+        : ['0', '1 题', '2 题', '3 题', '4 题以上'];
+      legendCells.forEach(function (lc, i) { lc.title = lv[i]; });
+      hmodeNote.textContent = mode === 'time' ? '按学习时长着色' : '按完成题数着色';
+      cellData.forEach(function (c) {
+        var level = mode === 'time' ? studyLevel(c.sec) : (c.cnt === 0 ? 0 : (c.cnt >= 4 ? 4 : c.cnt));
+        c.el.setAttribute('data-l', level);
+        c.el.title = c.key + '（周' + c.week + '）：' + (c.cnt ? c.cnt + ' 题' : '无完成') + ' · 学习 ' + fmtStudy(c.sec);
+      });
+      hsum.innerHTML = hmYear + ' 年完成 <b>' + yearDone + '</b> 题 · 学习 <b>' + fmtStudy(yearStudy) + '</b> · 活跃 <b>' + activeDays + '</b> 天';
+    }
+    modeCountBtn.addEventListener('click', function () { applyHeatMode('count', true); });
+    modeTimeBtn.addEventListener('click', function () { applyHeatMode('time', true); });
+    applyHeatMode(hmMode, false);
+
     if (hmYear === nowYear) {
       global.setTimeout(function () { hscroll.scrollLeft = hscroll.scrollWidth; }, 0);
     }
@@ -1073,6 +1386,31 @@
       head.appendChild(clearBtn);
     }
     view.appendChild(head);
+
+    var ranked = list.slice().sort(function (a, b) {
+      return (b.m.n || 1) - (a.m.n || 1) || String(b.m.last || '').localeCompare(String(a.m.last || ''));
+    }).filter(function (x) { return (x.m.n || 1) >= 2; }).slice(0, 5);
+    if (ranked.length) {
+      var rankCard = el('div', 'card rank-card');
+      rankCard.appendChild(el('h2', 'section-h', '🏆 高频错题排行'));
+      rankCard.appendChild(el('p', 'prose', '做错 2 次及以上的错题，按累计做错次数排序；点一行直接重做。'));
+      var rankList = el('div', 'rank-list');
+      ranked.forEach(function (item, i) {
+        var ra = el('a', 'rank-row');
+        ra.href = '#/learn/' + item.ch.id + '/' + item.ex.id;
+        ra.appendChild(el('span', 'rank-no' + (i < 3 ? ' top' + (i + 1) : ''), String(i + 1)));
+        var rmain = el('span', 'rank-main');
+        rmain.appendChild(el('b', 'rank-title', item.ex.title));
+        rmain.appendChild(el('span', 'rank-ch', item.ch.title));
+        ra.appendChild(rmain);
+        ra.appendChild(el('span', 'rank-count', '做错 ' + (item.m.n || 1) + ' 次'));
+        if (item.due) ra.appendChild(el('span', 'rank-due', '⏰'));
+        ra.appendChild(el('span', 'rank-go', '重做 →'));
+        rankList.appendChild(ra);
+      });
+      rankCard.appendChild(rankList);
+      view.appendChild(rankCard);
+    }
 
     var card = el('div', 'card');
     if (!list.length) {
@@ -2128,6 +2466,7 @@
     global.addEventListener('hashchange', route);
     if (!global.location.hash) global.location.hash = '#/home';
     route();
+    startStudyTimer();
 
     var searchBtn = document.getElementById('searchBtn');
     if (searchBtn) searchBtn.addEventListener('click', openSearch);
