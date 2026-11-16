@@ -11,6 +11,17 @@
   var CODE_KEY = 'pylearn.code.';
   var THEME_KEY = 'pylearn.theme';
 
+  var BADGES = [
+    { days: 3, icon: '🌱', name: '热身起步' },
+    { days: 7, icon: '🔥', name: '一周不辍' },
+    { days: 14, icon: '⚡', name: '两周坚持' },
+    { days: 30, icon: '🏅', name: '月度学霸' },
+    { days: 50, icon: '💎', name: '五十天' },
+    { days: 100, icon: '👑', name: '百日打卡' },
+    { days: 200, icon: '🚀', name: '两百天' },
+    { days: 365, icon: '🏆', name: '一年之约' }
+  ];
+
   var progress = loadJSON(STORE_KEY, { chapters: {} });
   var editors = {};       // exerciseId -> editor
   var homeChapters = {};
@@ -142,6 +153,75 @@
       todayCount: (map[today] || []).length,
       todayMet: (map[today] || []).length >= goal
     };
+  }
+  function weekStartDate(offset) {
+    var now = new Date();
+    var off = (offset || 0) * 7;
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) + off);
+  }
+  function recordAttempt(pass) {
+    if (!progress.attempts) progress.attempts = {};
+    var day = todayStr();
+    var a = progress.attempts[day] || { t: 0, ok: 0 };
+    a.t += 1;
+    if (pass) a.ok += 1;
+    progress.attempts[day] = a;
+    saveJSON(STORE_KEY, progress);
+  }
+  function dueMistakes() {
+    var today = todayStr();
+    var list = [];
+    var mistakes = progress.mistakes || {};
+    Object.keys(mistakes).forEach(function (id) {
+      var found = findEx(id);
+      if (!found) return;
+      var m = mistakes[id];
+      list.push({
+        id: id, m: m, ch: found.ch, ex: found.ex,
+        due: String(m.last || '') < today,
+        dueDate: m.last ? dateShift(m.last, 1) : ''
+      });
+    });
+    list.sort(function (a, b) {
+      if (a.due !== b.due) return a.due ? -1 : 1;
+      if (a.due) return String(a.m.last || '').localeCompare(String(b.m.last || ''));
+      return (b.m.n || 1) - (a.m.n || 1);
+    });
+    return list;
+  }
+  function checkBadges(streakVal) {
+    if (!progress.badges) progress.badges = {};
+    var newly = [];
+    BADGES.forEach(function (b) {
+      if (streakVal >= b.days && !progress.badges[b.days]) {
+        progress.badges[b.days] = todayStr();
+        newly.push(b);
+      }
+    });
+    if (newly.length) saveJSON(STORE_KEY, progress);
+    return newly;
+  }
+  function nextBadge(streakVal) {
+    for (var i = 0; i < BADGES.length; i++) {
+      if (streakVal < BADGES[i].days) return BADGES[i];
+    }
+    return null;
+  }
+  function toast(msg) {
+    var box = document.getElementById('toast');
+    if (!box) {
+      box = el('div', 'toast');
+      box.id = 'toast';
+      document.body.appendChild(box);
+    }
+    box.textContent = msg;
+    box.classList.add('show');
+    if (toast._timer) global.clearTimeout(toast._timer);
+    toast._timer = global.setTimeout(function () { box.classList.remove('show'); }, 4600);
+  }
+  function badgeToast(list) {
+    if (!list.length) return;
+    toast('🎉 解锁徽章：' + list.map(function (b) { return b.days + ' 天「' + b.name + '」'; }).join('、'));
   }
   function findEx(exId) {
     for (var i = 0; i < COURSE.chapters.length; i++) {
@@ -423,7 +503,7 @@
     wsLine.innerHTML = '📅 本周完成 <b>' + wk.total + '</b> 题' +
       (wk.today ? '，今天完成 <b>' + wk.today + '</b> 题' : '') +
       (legacy > 0 ? '<span class="week-sub"> · 有 ' + legacy + ' 题早期完成，未记录日期</span>' : '') +
-      '　<a class="week-link" href="#/history">查看记录 →</a>';
+      '　<a class="week-link" href="#/history">查看记录 →</a>　<a class="week-link" href="#/report">周报 →</a>';
     weekBox.appendChild(wsLine);
     var chart = el('div', 'week-chart');
     var maxC = Math.max.apply(null, wk.counts.concat([1]));
@@ -453,6 +533,24 @@
       (streak.todayMet ? ' <span class="goal-ok">✅ 已完成</span>' : '') +
       '　🔥 连续打卡 <b>' + streak.current + '</b> 天';
     weekBox.appendChild(goalLine);
+
+    var nb = nextBadge(streak.current);
+    var nbLine = el('div', 'week-next-badge');
+    nbLine.innerHTML = nb
+      ? '🏅 下一枚徽章「' + nb.name + '」：连续 ' + nb.days + ' 天（还差 ' + (nb.days - streak.current) + ' 天）'
+      : '🏅 全部 ' + BADGES.length + ' 枚徽章已解锁，太强了！';
+    weekBox.appendChild(nbLine);
+
+    var due = dueMistakes().filter(function (x) { return x.due; });
+    if (due.length) {
+      var rem = el('a', 'review-remind');
+      rem.href = '#/mistakes';
+      rem.innerHTML = '📕 <b>' + due.length + '</b> 道错题到期了，隔天复习效果最好 <span>去复习 →</span>';
+      weekBox.appendChild(rem);
+    }
+
+    var homeNewBadges = checkBadges(streak.current);
+    if (homeNewBadges.length) badgeToast(homeNewBadges);
     pc.appendChild(weekBox);
 
     var row = el('div', 'btn-row');
@@ -525,11 +623,18 @@
     var head = el('div', 'card');
     head.appendChild(el('h1', 'page-title', '📅 学习记录'));
     head.appendChild(el('p', 'page-sub', '每天完成过哪些练习，按日期倒序排列。点题目可以直接跳回去重做。'));
+    var headRow = el('div', 'btn-row');
+    var reportBtn = el('a', 'btn small primary', '📊 本周周报');
+    reportBtn.href = '#/report';
+    headRow.appendChild(reportBtn);
+    head.appendChild(headRow);
     view.appendChild(head);
 
     var goal = getGoal();
     var map = dayMap();
     var st = streakStats(goal, map);
+    var newBadges = checkBadges(st.current);
+    if (newBadges.length) badgeToast(newBadges);
     var wkNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
     var gc = el('div', 'card goal-card');
@@ -571,6 +676,31 @@
     chip('🕘', Object.keys(map).length, '有记录的天数');
     gc.appendChild(statsRow);
     view.appendChild(gc);
+
+    var bc = el('div', 'card');
+    bc.appendChild(el('h2', 'section-h', '🏅 连续打卡徽章'));
+    var unlocked = progress.badges || {};
+    var got = BADGES.filter(function (b) { return !!unlocked[b.days]; }).length;
+    var bsub = el('p', 'prose');
+    bsub.innerHTML = '已解锁 <b>' + got + '</b> / ' + BADGES.length + ' 枚。连续打卡达到天数会自动解锁；之后调整目标，已获得的徽章不会收回。';
+    bc.appendChild(bsub);
+    var bgrid = el('div', 'badge-grid');
+    BADGES.forEach(function (b) {
+      var has = !!unlocked[b.days];
+      var item = el('div', 'badge-item ' + (has ? 'unlocked' : 'locked'));
+      item.appendChild(el('span', 'badge-medal', has ? b.icon : '🔒'));
+      var txt = el('div', 'badge-txt');
+      txt.appendChild(el('b', 'badge-name', b.name));
+      var sub;
+      if (has) sub = '连续 ' + b.days + ' 天 · ' + unlocked[b.days] + ' 解锁';
+      else if (st.current < b.days) sub = '连续 ' + b.days + ' 天 · 还差 ' + (b.days - st.current) + ' 天';
+      else sub = '连续 ' + b.days + ' 天解锁';
+      txt.appendChild(el('span', 'badge-sub', sub));
+      item.appendChild(txt);
+      bgrid.appendChild(item);
+    });
+    bc.appendChild(bgrid);
+    view.appendChild(bc);
 
     var listCard = el('div', 'card');
     listCard.appendChild(el('h2', 'section-h', '完成流水账'));
@@ -623,13 +753,13 @@
     setNav('mistakes');
     renderSidebar(null);
 
-    var mistakes = progress.mistakes || {};
-    var ids = Object.keys(mistakes);
+    var list = dueMistakes();
+    var dueCount = list.filter(function (x) { return x.due; }).length;
 
     var head = el('div', 'card');
     head.appendChild(el('h1', 'page-title', '📕 错题本'));
-    head.appendChild(el('p', 'page-sub', '「检查答案」没通过的题会自动收进来，之后做对了会自动移出。建议隔一天回来重做一遍。'));
-    if (ids.length) {
+    head.appendChild(el('p', 'page-sub', '「检查答案」没通过的题会自动收进来，做对后自动移出。到期的错题排在前面——隔一天再来，效果更好。'));
+    if (list.length) {
       var clearBtn = el('button', 'btn ghost small', '🧹 清空错题本');
       clearBtn.addEventListener('click', function () {
         if (!global.confirm('确定清空错题本吗？')) return;
@@ -643,7 +773,7 @@
     view.appendChild(head);
 
     var card = el('div', 'card');
-    if (!ids.length) {
+    if (!list.length) {
       var empty = el('div', 'mistake-empty');
       empty.innerHTML = '🎉 错题本是空的，没有需要复习的题目。<br><br><a class="btn" href="#/learn/c1">去做几道练习</a>';
       card.appendChild(empty);
@@ -651,20 +781,22 @@
       return;
     }
 
-    ids.sort(function (a, b) { return String(mistakes[b].last || '').localeCompare(String(mistakes[a].last || '')); });
-    card.appendChild(el('h2', 'section-h', '待复习 ' + ids.length + ' 题'));
-    ids.forEach(function (id) {
-      var found = findEx(id);
-      if (!found) return;
-      var m = mistakes[id];
-      var item = el('div', 'mistake-item');
+    var sh = el('h2', 'section-h', '待复习 ' + list.length + ' 题');
+    if (dueCount) sh.innerHTML += ' <span class="due-count">⏰ ' + dueCount + ' 道已到期</span>';
+    card.appendChild(sh);
+    list.forEach(function (item) {
+      var m = item.m;
+      var box = el('div', 'mistake-item' + (item.due ? ' due' : ''));
       var top = el('div', 'mi-head');
-      top.innerHTML = '<span class="mi-icon">' + (found.ch.icon || '📘') + '</span>' +
-        '<b>' + found.ex.title + '</b>' +
-        (found.ex.review ? '<span class="di-tag">复习</span>' : '') +
-        '<span class="mi-path">' + found.ch.title + '</span>';
-      item.appendChild(top);
-      item.appendChild(el('div', 'mi-meta', '错过 ' + (m.n || 1) + ' 次 · 最近一次 ' + (m.last || '未知')));
+      top.innerHTML = '<span class="mi-icon">' + (item.ch.icon || '📘') + '</span>' +
+        '<b>' + item.ex.title + '</b>' +
+        (item.ex.review ? '<span class="di-tag">复习</span>' : '') +
+        '<span class="' + (item.due ? 'due-tag' : 'new-tag') + '">' + (item.due ? '⏰ 该复习了' : '今天刚错') + '</span>' +
+        '<span class="mi-path">' + item.ch.title + '</span>';
+      box.appendChild(top);
+      var meta = '错过 ' + (m.n || 1) + ' 次 · 最近一次 ' + (m.last || '未知');
+      meta += item.due ? ' · 建议复习 ' + item.dueDate : ' · 明天起可复习';
+      box.appendChild(el('div', 'mi-meta', meta));
       if (m.code) {
         var det = document.createElement('details');
         var sm = document.createElement('summary');
@@ -674,24 +806,159 @@
         pre.className = 'wrong-code';
         pre.textContent = m.code;
         det.appendChild(pre);
-        item.appendChild(det);
+        box.appendChild(det);
       }
       var row = el('div', 'btn-row');
       var go = el('a', 'btn small primary', '▶ 去重做');
-      go.href = '#/learn/' + found.ch.id + '/' + found.ex.id;
+      go.href = '#/learn/' + item.ch.id + '/' + item.ex.id;
       row.appendChild(go);
       var rm = el('button', 'btn small ghost', '移出错题本');
       rm.addEventListener('click', function () {
-        delete progress.mistakes[id];
+        delete progress.mistakes[item.id];
         saveJSON(STORE_KEY, progress);
         updateMistakeBadge();
         renderMistakes();
       });
       row.appendChild(rm);
-      item.appendChild(row);
-      card.appendChild(item);
+      box.appendChild(row);
+      card.appendChild(box);
     });
     view.appendChild(card);
+    global.scrollTo(0, 0);
+  }
+
+  /* ---------------- 周报 ---------------- */
+  function renderReport(offsetArg) {
+    var view = document.getElementById('view');
+    view.innerHTML = '';
+    setNav('home');
+    renderSidebar(null);
+
+    var offset = parseInt(offsetArg, 10);
+    if (isNaN(offset) || offset > 0) offset = 0;
+    if (offset < -52) offset = -52;
+
+    var goal = getGoal();
+    var map = dayMap();
+    var monday = weekStartDate(offset);
+    var wkLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+    var today = todayStr();
+    var days = [];
+    var totDone = 0, totT = 0, totOk = 0, metDays = 0, maxDone = 1;
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+      var key = fmtDate(d);
+      var done = (map[key] || []).length;
+      var a = (progress.attempts && progress.attempts[key]) || { t: 0, ok: 0 };
+      days.push({ key: key, label: wkLabels[i], done: done, t: a.t, ok: a.ok });
+      totDone += done;
+      totT += a.t;
+      totOk += a.ok;
+      if (done > maxDone) maxDone = done;
+      if (done >= goal) metDays++;
+    }
+    var acc = totT ? Math.round(totOk / totT * 100) : null;
+    var sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+
+    var head = el('div', 'card');
+    head.appendChild(el('h1', 'page-title', '📊 周报'));
+    var sub = el('p', 'page-sub');
+    sub.textContent = fmtDate(monday) + ' ~ ' + fmtDate(sunday) + ' · 按当前目标（每天 ' + goal + ' 题）统计';
+    head.appendChild(sub);
+
+    var navRow = el('div', 'week-nav');
+    var prev = el('a', 'btn small', '‹ 上一周');
+    prev.href = '#/report/' + (offset - 1);
+    navRow.appendChild(prev);
+    navRow.appendChild(el('span', 'week-title', offset === 0 ? '本周' : (offset === -1 ? '上周' : Math.abs(offset) + ' 周前')));
+    if (offset < 0) {
+      var next = el('a', 'btn small', '下一周 ›');
+      next.href = '#/report/' + (offset + 1);
+      navRow.appendChild(next);
+    }
+    var back = el('a', 'btn small ghost', '← 学习记录');
+    back.href = '#/history';
+    back.style.marginLeft = 'auto';
+    navRow.appendChild(back);
+    head.appendChild(navRow);
+    view.appendChild(head);
+
+    var sc = el('div', 'card');
+    sc.appendChild(el('h2', 'section-h', '这一周的关键数字'));
+    var chips = el('div', 'goal-stats');
+    function rchip(icon, val, label) {
+      var box = el('div', 'goal-chip');
+      box.appendChild(el('span', 'gc-icon', icon));
+      var col = el('div', 'gc-col');
+      col.appendChild(el('span', 'gc-val', String(val)));
+      col.appendChild(el('span', 'gc-label', label));
+      box.appendChild(col);
+      chips.appendChild(box);
+    }
+    rchip('✅', totDone, '完成题目（题）');
+    rchip('📅', metDays + ' / 7', '达标天数');
+    rchip('🧪', totT, '判题次数');
+    rchip('🎯', acc == null ? '—' : acc + '%', '判题正确率');
+    sc.appendChild(chips);
+    view.appendChild(sc);
+
+    var tc = el('div', 'card');
+    tc.appendChild(el('h2', 'section-h', '每日完成与正确率'));
+    var tblWrap = el('div', 'table-wrap');
+    var table = document.createElement('table');
+    table.className = 'data report-table';
+    var thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>日期</th><th>完成</th><th>判题</th><th>正确率</th><th>达标</th></tr>';
+    table.appendChild(thead);
+    var tbody = document.createElement('tbody');
+    days.forEach(function (day) {
+      var tr = document.createElement('tr');
+      if (day.key === today) tr.className = 'today-row';
+      var dayAcc = day.t ? Math.round(day.ok / day.t * 100) + '%' : '—';
+      var width = day.done ? Math.max(8, Math.round(day.done / maxDone * 100)) : 0;
+      tr.innerHTML = '<td><b>' + day.label + '</b> <span class="rep-date">' + day.key.slice(5) + '</span></td>' +
+        '<td><span class="rep-bar"><i style="width:' + width + '%"></i></span><span class="rep-num">' + day.done + '</span></td>' +
+        '<td>' + day.t + ' 次</td>' +
+        '<td>' + dayAcc + '</td>' +
+        '<td>' + (day.done >= goal ? '<span class="badge done">✓ 达标</span>' : '<span class="badge">—</span>') + '</td>';
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    tblWrap.appendChild(table);
+    tc.appendChild(tblWrap);
+    if (!totDone && !totT) {
+      var empty = el('div', 'day-empty');
+      empty.innerHTML = '这一周还没有学习记录。<br><a class="btn small" href="#/learn/c1">去练几道题</a>';
+      tc.appendChild(empty);
+    }
+    tc.appendChild(el('p', 'report-note', '正确率 = 检查通过次数 ÷ 检查总次数；判题数据从本次更新后开始记录。'));
+    view.appendChild(tc);
+
+    var dist = {};
+    days.forEach(function (day) {
+      (map[day.key] || []).forEach(function (it) {
+        dist[it.ch.id] = (dist[it.ch.id] || 0) + 1;
+      });
+    });
+    var chIds = Object.keys(dist);
+    if (chIds.length) {
+      chIds.sort(function (a, b) { return dist[b] - dist[a]; });
+      var cc = el('div', 'card');
+      cc.appendChild(el('h2', 'section-h', '这一周完成的章节'));
+      var maxC = dist[chIds[0]];
+      chIds.forEach(function (cid) {
+        var ch = homeChapters[cid];
+        if (!ch) return;
+        var row = el('div', 'dist-row');
+        row.innerHTML = '<span class="dist-name">' + (ch.icon || '📘') + ' ' + ch.title + '</span>' +
+          '<span class="dist-bar"><i style="width:' + Math.round(dist[cid] / maxC * 100) + '%"></i></span>' +
+          '<span class="dist-num">' + dist[cid] + ' 题</span>';
+        cc.appendChild(row);
+      });
+      view.appendChild(cc);
+    }
+
+    global.scrollTo(0, 0);
   }
 
   /* ---------------- 课程章节 ---------------- */
@@ -954,6 +1221,7 @@
       checkExercise(ex, ed.getValue()).then(function (r) {
         checkBtn.disabled = false;
         checkBtn.textContent = '✔ 检查答案';
+        recordAttempt(!!r.pass);
         showCheckResult(result, r, ex, function () {
           st.solved[ex.id] = true;
           st.dates[ex.id] = todayStr();
@@ -963,6 +1231,9 @@
           badge.textContent = '✔ 已完成';
           badge.title = '完成于 ' + st.dates[ex.id];
           updateMistakeBadge();
+          var ns = streakStats(getGoal());
+          var fresh = checkBadges(ns.current);
+          if (fresh.length) badgeToast(fresh);
           renderSidebar(ch.id);
         });
         if (!r.pass && r.wasNew) recordMistake(ex, ed.getValue());
@@ -1531,6 +1802,7 @@
     else if (view === 'cheatsheet') renderCheatsheet();
     else if (view === 'playground') renderPlayground();
     else if (view === 'history') renderHistory(parts[1]);
+    else if (view === 'report') renderReport(parts[1]);
     else if (view === 'mistakes') renderMistakes();
     else renderHome();
     updateMistakeBadge();

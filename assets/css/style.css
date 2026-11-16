@@ -266,6 +266,17 @@ table.data tr:nth-child(even) td { background: color-mix(in srgb, var(--panel-2)
 .week-goal { margin-top: 10px; font-size: 13px; color: var(--muted); }
 .week-goal b { color: var(--text); }
 .goal-ok { color: var(--ok); font-weight: 700; }
+.week-next-badge { margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+.review-remind {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 10px; padding: 9px 12px; border-radius: 9px; text-decoration: none;
+  color: var(--text); font-size: 13.5px;
+  background: color-mix(in srgb, #e8a33d 14%, var(--panel));
+  border: 1px solid color-mix(in srgb, #e8a33d 40%, var(--border));
+}
+.review-remind b { color: #b06a00; font-size: 15px; }
+.review-remind span { color: var(--accent); font-weight: 600; white-space: nowrap; }
+.review-remind:hover { filter: brightness(1.03); text-decoration: none; }
 
 /* ---------------- 学习记录页 ---------------- */
 .goal-line { font-size: 14.5px; margin-bottom: 8px; }
@@ -304,13 +315,63 @@ table.data tr:nth-child(even) td { background: color-mix(in srgb, var(--panel-2)
 .day-list .di-ch { flex: none; font-size: 12px; color: var(--muted); max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .day-empty { color: var(--muted); padding: 16px 2px; line-height: 2; }
 
+/* 徽章 */
+.badge-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.badge-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2);
+}
+.badge-item .badge-medal { font-size: 26px; line-height: 1; flex: none; }
+.badge-item.locked { opacity: .55; }
+.badge-item.locked .badge-medal { filter: grayscale(1); }
+.badge-item.unlocked { border-color: color-mix(in srgb, #e8a33d 45%, var(--border)); background: color-mix(in srgb, #e8a33d 9%, var(--panel-2)); }
+.badge-txt { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+.badge-name { font-size: 14px; }
+.badge-sub { font-size: 11.5px; color: var(--muted); }
+
+/* 周报 */
+.week-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.week-nav .week-title { font-weight: 700; font-size: 15px; padding: 0 4px; }
+.table-wrap { overflow-x: auto; }
+.report-table { width: 100%; min-width: 520px; }
+.report-table .rep-date { color: var(--muted); font-size: 12px; margin-left: 4px; }
+.report-table td { vertical-align: middle; }
+.report-table tr.today-row td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.rep-bar {
+  display: inline-block; vertical-align: middle; width: 84px; height: 8px;
+  background: var(--bg-soft); border-radius: 999px; overflow: hidden; margin-right: 7px;
+}
+.rep-bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.rep-num { font-weight: 700; font-size: 13px; }
+.report-note { color: var(--muted); font-size: 12px; margin: 10px 0 0; line-height: 1.7; }
+.dist-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px dashed var(--border); }
+.dist-row:first-of-type { border-top: 0; }
+.dist-name { flex: 0 0 38%; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dist-bar { flex: 1 1 auto; height: 9px; background: var(--bg-soft); border-radius: 999px; overflow: hidden; }
+.dist-bar i { display: block; height: 100%; background: color-mix(in srgb, var(--accent) 70%, var(--accent-2)); border-radius: 999px; }
+.dist-num { flex: none; font-size: 12.5px; color: var(--muted); width: 48px; text-align: right; }
+@media (max-width: 480px) {
+  .dist-name { flex-basis: 46%; font-size: 13px; }
+}
+
 /* ---------------- 错题本 ---------------- */
 .mistake-item { border-top: 1px dashed var(--border); padding: 14px 0; }
 .mistake-item:first-of-type { border-top: 0; }
+.mistake-item.due { border-left: 3px solid #e8a33d; padding-left: 12px; border-radius: 3px; }
 .mi-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15.5px; }
 .mi-head .mi-icon { flex: none; }
 .mi-path { margin-left: auto; font-size: 12px; color: var(--muted); }
 .mi-meta { font-size: 13px; color: var(--muted); margin: 4px 0 2px; }
+.due-tag, .new-tag {
+  flex: none; font-size: 11.5px; border-radius: 5px; padding: 2px 7px; font-weight: 600;
+}
+.due-tag { color: #b06a00; background: color-mix(in srgb, #e8a33d 20%, transparent); }
+.new-tag { color: var(--tip); background: var(--tip-soft); }
+.due-count {
+  font-size: 12.5px; font-weight: 600; color: #b06a00;
+  background: color-mix(in srgb, #e8a33d 16%, transparent);
+  border-radius: 6px; padding: 2px 8px; margin-left: 6px; vertical-align: 2px;
+}
 .mistake-item details { margin: 6px 0 2px; }
 .mistake-item summary { cursor: pointer; font-size: 13px; color: var(--accent); }
 .wrong-code {
@@ -542,6 +603,20 @@ html[data-theme="dark"] .hero { background: linear-gradient(135deg, #1d3557, #27
 .search-list .s-text { font-size: 13px; color: var(--muted); }
 .search-list mark { background: rgba(255, 200, 0, .35); color: inherit; border-radius: 3px; padding: 0 1px; }
 
+/* ---------------- 轻提示 ---------------- */
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px);
+  z-index: 200; max-width: min(92vw, 560px);
+  padding: 12px 18px; border-radius: 12px; font-size: 14.5px; line-height: 1.5;
+  color: #fff; background: color-mix(in srgb, #1f2a3d 94%, transparent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .28);
+  opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 480px) {
+  .toast { bottom: 16px; font-size: 13.5px; padding: 10px 14px; }
+}
+
 /* ---------------- 响应式 ---------------- */
 @media (max-width: 980px) {
   .layout { flex-direction: column; padding: 16px 14px 60px; align-items: stretch; }
@@ -582,4 +657,9 @@ html[data-theme="dark"] .hero { background: linear-gradient(135deg, #1d3557, #27
   .console { font-size: 12px; }
   .page-title { font-size: 20px; }
   .cheat-item .ci-code { font-size: 12px; }
+  .report-table { min-width: 0; font-size: 12px; }
+  .report-table th, .report-table td { padding: 5px 6px; }
+  .report-table .rep-bar { width: 40px; margin-right: 4px; }
+  .report-table .rep-date { display: none; }
+  .report-table .badge { padding: 1px 6px; font-size: 11px; }
 }
