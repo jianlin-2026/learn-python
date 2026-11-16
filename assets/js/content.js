@@ -819,5 +819,75 @@
     ]
   });
 
+  /* ======================= 第 14 章（纯导读，无练习） ======================= */
+  chapters.push({
+    id: 'c14',
+    icon: '🗺️',
+    guide: true,
+    title: '进阶路线图：Python 之后去哪',
+    summary: '你已经入门了——这一章不讲新语法，只回答三个问题：接下来学什么？用什么工具学？往哪个方向走？',
+    goals: [
+      '清点你已经掌握的知识，建立信心',
+      '知道怎么安装真正的 Python 和编辑器',
+      '了解 Web / 数据 / 自动化 / 游戏 / AI 几个主流方向',
+      '知道去哪里找靠谱的中文学习资源'
+    ],
+    exercises: [],
+    sections: [
+      { type: 'p', text: '恭喜你读到了这里！前 13 章已经把 Python <b>最核心的基础</b>全部讲完了：变量、字符串、列表、字典、循环、函数、类、异常……这些是所有 Python 程序的地基，往后学的任何库、任何框架，用的都是这几样东西。这一章没有练习，纯粹是给你画一张「接下来的地图」。' },
+
+      { type: 'h', text: '清点一下你已经会的' },
+      { type: 'list', ordered: false, items: [
+        '用 <code>print()</code> / <code>input()</code> 和程序「对话」，并用 f-string 组织输出',
+        '用 <b>变量</b>和四种基本类型（int / float / str / bool）存数据，会类型转换',
+        '用 <b>列表、元组、集合、字典</b>整理一堆数据，会增删改查、排序、去重',
+        '用 <code>if / elif / else</code> 做判断，用 <code>for / while</code> 做循环，会 <code>break / continue</code>',
+        '用 <b>函数</b>把代码打包复用，懂参数、返回值、默认值和作用域',
+        '用 <b>类</b>描述一类事物，会 <code>__init__</code>、继承和 <code>super()</code>',
+        '用 <code>try / except</code> 处理错误，看得懂报错信息，还会自己定义异常',
+        '用过 <code>math / random / time</code> 三个模块，知道 import 是怎么回事'
+      ] },
+      { type: 'quote', text: '这 8 条不是「背下来了」就算数——它们已经在你做过的 38 道练习里用过一遍了。' },
+
+      { type: 'h', text: '第一步：去装一个「真正的」Python' },
+      { type: 'p', text: '本站的迷你解释器是为了「零安装、马上能跑」设计的，只覆盖了课程需要的语法。想继续深入，就需要一个完整的 Python 环境，差别主要在三点：<b>能装第三方库</b>、<b>能读写文件</b>、<b>跑得更快</b>。' },
+      { type: 'list', ordered: true, items: [
+        '到 <code>python.org/downloads</code> 下载对应系统的安装包（Windows 下载时注意选 64 位）。',
+        '<b>安装时一定要勾选「Add Python to PATH」</b>，否则命令行里敲 <code>python</code> 会找不到。',
+        '装一个顺手的编辑器：推荐 <b>VS Code</b>（免费）+ 官方 Python 插件，写起来和本站编辑器体验类似，还有自动补全。',
+        '打开终端，敲 <code>python --version</code> 出现版本号，就说明装好了。'
+      ] },
+      { type: 'tip', title: 'pip：安装第三方库的命令', text: '真正的 Python 自带 <code>pip</code>，装库只要一行命令，比如 <code>pip install requests</code>。装好后 <code>import requests</code> 就能用了——「先 pip 装、再 import 用」就是 Python 世界的常识。' },
+      { type: 'warn', title: '语言语法是一样的', text: '本站教的语法和真实 Python 完全一致，你写的每一行练习代码在真环境里都能跑。只是真环境多了文件读写、网络访问和海量第三方库，少了一些限制。' },
+
+      { type: 'h', text: '主流方向一览' },
+      { type: 'p', text: 'Python 是出了名的「胶水语言」，几乎什么都能干。下面是最常见的五个方向，各有各的好玩：' },
+      { type: 'table', head: ['方向', '能做出什么', '代表库 / 工具', '适合你的情况'], rows: [
+        ['🌐 Web 开发', '网站、小程序后台、接口', 'Flask、Django', '想做出「别人能访问」的东西'],
+        ['📊 数据分析', '处理表格、画图表、出报表', 'pandas、matplotlib', '喜欢和数据、图表打交道'],
+        ['🤖 办公自动化', '批量改名、自动填表、爬资料', 'openpyxl、requests', '想让重复劳动消失'],
+        ['🎮 游戏开发', '贪吃蛇、飞机大战这类小游戏', 'pygame', '学编程主要是为了好玩'],
+        ['🧠 人工智能', '聊天机器人、图像识别、大模型应用', '先打好基础，从 NumPy 开始', '不怕数学，想追新']
+      ] },
+      { type: 'p', text: '不知道选哪个？建议：先把 <b>自动化</b> 或 <b>游戏</b> 当第一个小目标——它们见效快、成就感强，做两个小项目再决定要不要转别的方向也不迟。' },
+
+      { type: 'h', text: '一个「毕业小作品」' },
+      { type: 'p', text: '下面这个小程序把课程里的大半知识点都用上了：函数、字典、f-string、循环、异常处理。你可以先读懂它，再把它改造成「成绩排名版」或者加上自己的名字。' },
+      { type: 'code', caption: '单词统计器（点运行试试）', code: 'def top_words(text, n=5):\n    """统计一段话里出现最多的 n 个单词"""\n    counts = {}\n    for w in text.lower().split():\n        w = w.strip(".,!?")\n        if not w:\n            continue\n        counts[w] = counts.get(w, 0) + 1\n    return sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:n]\n\nessay = """Python is fun. Python is powerful.\nFun programs are written in Python, and Python keeps it fun."""\n\nprint("单词".ljust(10), "次数")\nfor word, count in top_words(essay):\n    try:\n        print(word.ljust(10), count)\n    except Exception as e:\n        print("出错了:", e)' },
+      { type: 'tip', title: '想继续练手？', text: '回「练习场」把这章的代码改出花样；也可以把本站每章最后的练习重做一遍——这次不看答案，看看自己能写多快。' },
+
+      { type: 'h', text: '靠谱的中文资源' },
+      { type: 'list', ordered: false, items: [
+        '<b>Python 官方中文教程</b>：<code>docs.python.org/zh-cn/3/tutorial</code> —— 最权威，适合当字典查',
+        '<b>菜鸟教程</b>：<code>runoob.com/python3</code> —— 每个知识点都有在线例子',
+        '<b>廖雪峰 Python 教程</b>：<code>liaoxuefeng.com</code> —— 行文流畅，适合通读',
+        '<b>哔哩哔哩</b>：搜「Python 入门」，跟着视频敲代码，挑播放量高、最近更新的'
+      ] },
+      { type: 'quote', text: '编程是练出来的，不是看出来的。接下来最值钱的习惯是：每周固定写一点代码，哪怕只是一个 10 行的小程序。' },
+
+      { type: 'p', text: '🗺️ 祝你在 Python 的世界里走得更远。本站会一直在这儿——忘了什么语法，回「速查表」翻一翻就行。' }
+    ]
+  });
+
   global.PY_COURSE = { chapters: chapters };
 })(typeof window !== 'undefined' ? window : globalThis);

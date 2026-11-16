@@ -198,7 +198,7 @@
       var icon = el('span', 'icon', ch.icon || '📘');
       var t = el('span', 't', ch.title);
       var n = solvedCount(ch), total = ch.exercises.length;
-      var pct = el('span', 'pct' + (n === total ? ' done' : ''), n === total ? '✓' : n + '/' + total);
+      var pct = el('span', 'pct' + (total && n === total ? ' done' : ''), total === 0 ? '·' : (n === total ? '✓' : n + '/' + total));
       a.appendChild(icon); a.appendChild(t); a.appendChild(pct);
       if (ch.id === activeId) a.classList.add('active');
       li.appendChild(a);
@@ -285,7 +285,7 @@
 
     var hero = el('div', 'hero');
     var h1 = el('h1', null, '从零开始学 Python');
-    var p = el('p', null, '13 章精心编排的入门课程：每章都有能直接运行的例子、能自动判题的练习。无需安装任何东西，双击打开网页就能开始。');
+    var p = el('p', null, COURSE.chapters.length + ' 章精心编排的入门课程：每章都有能直接运行的例子、能自动判题的练习。无需安装任何东西，双击打开网页就能开始。');
     var tags = el('div', 'hero-tags');
     ['🖱️ 点开就能跑', '✅ 自动判题', '💾 进度自动保存', '📴 完全离线可用'].forEach(function (t) {
       tags.appendChild(el('span', 'tag', t));
@@ -358,7 +358,7 @@
       a.appendChild(el('div', 'cc-sum', ch.summary));
       var foot2 = el('div', 'cc-foot');
       var n = solvedCount(ch), total = ch.exercises.length;
-      foot2.appendChild(el('span', null, n === total ? '✅ 已完成' : '练习 ' + n + '/' + total));
+      foot2.appendChild(el('span', null, total === 0 ? '🗺️ 纯导读' : (n === total ? '✅ 已完成' : '练习 ' + n + '/' + total)));
       foot2.appendChild(el('span', null, '· ' + ch.sections.length + ' 个知识点'));
       a.appendChild(foot2);
       g2.appendChild(a);
@@ -395,11 +395,13 @@
     ch.sections.forEach(function (sec) { body.appendChild(renderSection(ch, sec)); });
     view.appendChild(body);
 
-    var exCard = el('div', 'card');
-    exCard.appendChild(el('h2', 'section-h', '动手练习'));
-    exCard.appendChild(el('p', 'prose', '先自己写，卡住了看「提示」，实在不会再点「显示答案」。检查通过后左边目录会自动打勾。'));
-    ch.exercises.forEach(function (ex, i) { exCard.appendChild(renderExercise(ch, ex, i)); });
-    view.appendChild(exCard);
+    var exCard = ch.exercises.length ? el('div', 'card') : null;
+    if (exCard) {
+      exCard.appendChild(el('h2', 'section-h', '动手练习'));
+      exCard.appendChild(el('p', 'prose', '先自己写，卡住了看「提示」，实在不会再点「显示答案」。检查通过后左边目录会自动打勾。'));
+      ch.exercises.forEach(function (ex, i) { exCard.appendChild(renderExercise(ch, ex, i)); });
+      view.appendChild(exCard);
+    }
 
     var idx = COURSE.chapters.indexOf(ch);
     var nav = el('div', 'card');
@@ -1023,6 +1025,159 @@
     document.body.removeChild(ta);
   }
 
+  /* ---------------- 全站搜索 ---------------- */
+  var searchIndex = null;   // [{href, path, title, text, kind}]
+  var searchDom = null;     // {overlay, input, results}
+
+  function toText(html) {
+    var d = document.createElement('div');
+    d.innerHTML = String(html);
+    return (d.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function buildSearchIndex() {
+    if (searchIndex) return searchIndex;
+    searchIndex = [];
+    COURSE.chapters.forEach(function (ch) {
+      var chPath = (ch.icon ? ch.icon + ' ' : '') + ch.title;
+      searchIndex.push({
+        href: '#/learn/' + ch.id,
+        path: '课程',
+        title: chPath,
+        text: chPath + '。' + ch.summary + '。' + (ch.goals || []).join('。')
+      });
+      ch.sections.forEach(function (sec) {
+        var kindText = '';
+        var title = chPath;
+        if (sec.type === 'h') { title = toText(sec.text); kindText = toText(sec.text); }
+        else if (sec.type === 'code') { title = sec.caption || chPath; kindText = title + '。' + toText('<code>' + sec.code + '</code>'); }
+        else if (sec.type === 'tip' || sec.type === 'warn') { title = sec.title || chPath; kindText = title + '。' + toText(sec.text); }
+        else if (sec.type === 'table') { kindText = toText('<i>' + (sec.head || []).join(' ') + '</i><i>' + (sec.rows || []).map(function (r) { return r.join(' '); }).join(' ') + '</i>'); }
+        else if (sec.type === 'list') { kindText = toText((sec.items || []).map(function (x) { return '<i>' + x + '</i>'; }).join(' ')); }
+        else { kindText = toText(sec.text || ''); }
+        if (!kindText) return;
+        searchIndex.push({ href: '#/learn/' + ch.id, path: chPath, title: title, text: chPath + '。' + kindText });
+      });
+      ch.exercises.forEach(function (ex) {
+        searchIndex.push({
+          href: '#/learn/' + ch.id + '/' + ex.id,
+          path: chPath + ' · 练习',
+          title: ex.title,
+          text: ex.title + '。' + toText(ex.prompt) + '。' + toText(ex.hint || '')
+        });
+      });
+    });
+    (CHEAT.groups || []).forEach(function (g) {
+      g.items.forEach(function (it) {
+        searchIndex.push({
+          href: '#/cheatsheet',
+          path: '📌 速查表 · ' + g.title,
+          title: it.t,
+          text: it.t + '。' + it.c + '。' + (it.n || '')
+        });
+      });
+    });
+    return searchIndex;
+  }
+
+  function searchEscape(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  function runSearch(q) {
+    var box = searchDom.results;
+    box.innerHTML = '';
+    q = q.trim();
+    if (!q) {
+      box.innerHTML = '<div class="search-tip">输入关键词，搜课程讲解、练习和速查表。<br>比如「字典」「while」「f-string」「拆包」。</div>';
+      return;
+    }
+    var ql = q.toLowerCase();
+    var hits = [];
+    buildSearchIndex().forEach(function (en) {
+      var tl = en.title.toLowerCase();
+      var xl = en.text.toLowerCase();
+      var score = 0;
+      var idx = -1;
+      if (tl.indexOf(ql) === 0) { score += 4; idx = 0; }
+      else if (tl.indexOf(ql) >= 0) { score += 2; idx = 0; }
+      if (score) {
+        var x = xl.indexOf(ql);
+        if (x < 0) x = 0;
+        en._snippet = en.text.slice(Math.max(0, x - 40), x + 90);
+        hits.push({ en: en, score: score });
+      } else if ((idx = xl.indexOf(ql)) >= 0) {
+        en._snippet = en.text.slice(Math.max(0, idx - 40), idx + 90);
+        hits.push({ en: en, score: 1 });
+      }
+    });
+    hits.sort(function (a, b) { return b.score - a.score; });
+    hits = hits.slice(0, 30);
+    if (!hits.length) {
+      box.innerHTML = '<div class="search-tip">没有找到「' + searchEscape(q) + '」。换个关键词试试？</div>';
+      return;
+    }
+    box.appendChild(el('div', 'search-count', '找到 ' + hits.length + ' 条相关内容'));
+    var ul = el('ul', 'search-list');
+    hits.forEach(function (h) {
+      var en = h.en;
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = en.href;
+      a.innerHTML = '<div class="s-path">' + searchEscape(en.path) + '</div>' +
+        '<div class="s-title">' + searchEscape(en.title) + '</div>' +
+        '<div class="s-text">' + searchEscape(en._snippet) + '</div>';
+      a.addEventListener('click', function () { closeSearch(); });
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+  }
+
+  function openSearch() {
+    ensureSearchUI();
+    searchDom.overlay.classList.add('open');
+    searchDom.input.value = '';
+    runSearch('');
+    setTimeout(function () { searchDom.input.focus(); }, 30);
+  }
+  function closeSearch() {
+    if (searchDom) searchDom.overlay.classList.remove('open');
+  }
+  function ensureSearchUI() {
+    if (searchDom) return;
+    var overlay = el('div', 'search-overlay');
+    overlay.id = 'searchOverlay';
+    var panel = el('div', 'search-panel');
+    var bar = el('div', 'search-bar');
+    var input = document.createElement('input');
+    input.type = 'search';
+    input.placeholder = '搜索：字典、循环、异常、拆包…';
+    var closeBtn = el('button', 'btn small ghost', '✕ 关闭');
+    bar.appendChild(input);
+    bar.appendChild(closeBtn);
+    var results = el('div', 'search-results');
+    panel.appendChild(bar);
+    panel.appendChild(results);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    input.addEventListener('input', function () { runSearch(input.value); });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        var first = results.querySelector('.search-list a');
+        if (first) { location.hash = first.getAttribute('href').slice(1); closeSearch(); }
+      }
+    });
+    closeBtn.addEventListener('click', closeSearch);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeSearch();
+    });
+    searchDom = { overlay: overlay, input: input, results: results };
+  }
+
   /* ---------------- 路由 ---------------- */
   function route() {
     var hash = global.location.hash || '#/home';
@@ -1052,6 +1207,20 @@
     global.addEventListener('hashchange', route);
     if (!global.location.hash) global.location.hash = '#/home';
     route();
+
+    var searchBtn = document.getElementById('searchBtn');
+    if (searchBtn) searchBtn.addEventListener('click', openSearch);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { closeSearch(); return; }
+      if (e.key === '/' && !(searchDom && searchDom.overlay.classList.contains('open'))) {
+        var t = e.target;
+        var tag = t && t.tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+          e.preventDefault();
+          openSearch();
+        }
+      }
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

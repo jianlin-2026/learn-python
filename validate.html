@@ -117,7 +117,7 @@
         seenCh[ch.id] = true;
         if (!ch.title || !ch.summary || !ch.goals || !ch.goals.length) log('结构', ch.id, '缺少 title/summary/goals');
         if (!ch.sections || !ch.sections.length) log('结构', ch.id, '没有 sections');
-        if (!ch.exercises || !ch.exercises.length) log('结构', ch.id, '没有 exercises');
+        if ((!ch.exercises || !ch.exercises.length) && !ch.guide) log('结构', ch.id, '没有 exercises');
         for (var si = 0; si < (ch.sections || []).length; si++) {
           var sec = ch.sections[si];
           var known = { h: 1, p: 1, code: 1, tip: 1, warn: 1, table: 1, list: 1, quote: 1 };
