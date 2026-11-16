@@ -47,6 +47,7 @@
   function chState(id) {
     if (!progress.chapters[id]) progress.chapters[id] = { solved: {}, seen: false };
     if (!progress.chapters[id].solved) progress.chapters[id].solved = {};
+    if (!progress.chapters[id].dates) progress.chapters[id].dates = {};
     return progress.chapters[id];
   }
   function solvedCount(ch) {
@@ -61,6 +62,38 @@
       done += solvedCount(ch);
     });
     return { done: done, all: all };
+  }
+
+  /* ---------------- 完成日期 / 本周统计 ---------------- */
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function fmtDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function todayStr() { return fmtDate(new Date()); }
+  function collectDoneDates() {
+    var all = [];
+    COURSE.chapters.forEach(function (ch) {
+      var st = progress.chapters[ch.id];
+      if (!st || !st.dates) return;
+      Object.keys(st.dates).forEach(function (k) { if (st.dates[k]) all.push(st.dates[k]); });
+    });
+    return all;
+  }
+  function weekData() {
+    var dates = collectDoneDates();
+    var now = new Date();
+    var monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+    var days = [], counts = [], total = 0, today = 0;
+    var todayKey = fmtDate(now);
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+      var key = fmtDate(d);
+      var n = 0;
+      for (var j = 0; j < dates.length; j++) if (dates[j] === key) n++;
+      days.push(key);
+      counts.push(n);
+      total += n;
+      if (key === todayKey) today = n;
+    }
+    return { days: days, counts: counts, total: total, today: today, todayKey: todayKey };
   }
 
   /* ---------------- 主题 ---------------- */
@@ -307,6 +340,34 @@
     meta.appendChild(el('span', null, pct + '%'));
     pc.appendChild(meta);
     pc.appendChild(bar);
+
+    /* 本周时间线 */
+    var wk = weekData();
+    var legacy = stats.done - collectDoneDates().length;
+    var weekBox = el('div', 'week-panel');
+    var wsLine = el('div', 'week-summary');
+    wsLine.innerHTML = '📅 本周完成 <b>' + wk.total + '</b> 题' +
+      (wk.today ? '，今天完成 <b>' + wk.today + '</b> 题' : '') +
+      (legacy > 0 ? '<span class="week-sub"> · 有 ' + legacy + ' 题早期完成，未记录日期</span>' : '');
+    weekBox.appendChild(wsLine);
+    var chart = el('div', 'week-chart');
+    var maxC = Math.max.apply(null, wk.counts.concat([1]));
+    var labels = ['一', '二', '三', '四', '五', '六', '日'];
+    wk.counts.forEach(function (cv, ci) {
+      var col = el('div', 'wk-col' + (wk.days[ci] === wk.todayKey ? ' today' : ''));
+      col.appendChild(el('span', 'wk-num', cv ? String(cv) : ''));
+      var barWrap = el('div', 'wk-barwrap');
+      var bar = el('div', 'wk-bar');
+      bar.style.height = cv ? Math.max(16, Math.round(cv / maxC * 100)) + '%' : '3px';
+      bar.title = '周' + labels[ci] + '：' + cv + ' 题';
+      barWrap.appendChild(bar);
+      col.appendChild(barWrap);
+      col.appendChild(el('span', 'wk-day', labels[ci]));
+      chart.appendChild(col);
+    });
+    weekBox.appendChild(chart);
+    pc.appendChild(weekBox);
+
     var row = el('div', 'btn-row');
     var last = progress.last || COURSE.chapters[0].id;
     var cont = el('a', 'btn primary', '▶ 继续学习：' + (homeChapters[last] ? homeChapters[last].title : '第一章'));
@@ -399,7 +460,17 @@
     if (exCard) {
       exCard.appendChild(el('h2', 'section-h', '动手练习'));
       exCard.appendChild(el('p', 'prose', '先自己写，卡住了看「提示」，实在不会再点「显示答案」。检查通过后左边目录会自动打勾。'));
-      ch.exercises.forEach(function (ex, i) { exCard.appendChild(renderExercise(ch, ex, i)); });
+      var reviewShown = false;
+      ch.exercises.forEach(function (ex, i) {
+        if (ex.review && !reviewShown) {
+          reviewShown = true;
+          var sep = el('div', 'review-sep');
+          sep.appendChild(el('h3', 'review-h', '🔁 复习挑战'));
+          sep.appendChild(el('p', 'prose', '这一轮把本章和其他章节的知识组合起来，难度稍高；建议先独立完成，再对照答案。'));
+          exCard.appendChild(sep);
+        }
+        exCard.appendChild(renderExercise(ch, ex, i));
+      });
       view.appendChild(exCard);
     }
 
@@ -543,11 +614,13 @@
 
     var st = chState(ch.id);
     var done = !!st.solved[ex.id];
+    var doneDate = st.dates[ex.id];
 
     var head = el('div', 'exercise-head');
-    head.appendChild(el('span', 'num', '练习 ' + (index + 1)));
+    head.appendChild(el('span', 'num' + (ex.review ? ' review' : ''), ex.review ? '🔁 挑战' : '练习 ' + (index + 1)));
     head.appendChild(el('h3', null, ex.title));
     var badge = el('span', 'badge' + (done ? ' done' : ''), done ? '✔ 已完成' : '未完成');
+    if (done && doneDate) badge.title = '完成于 ' + doneDate;
     head.appendChild(badge);
     wrap.appendChild(head);
 
@@ -617,9 +690,11 @@
         checkBtn.textContent = '✔ 检查答案';
         showCheckResult(result, r, ex, function () {
           st.solved[ex.id] = true;
+          st.dates[ex.id] = todayStr();
           saveJSON(STORE_KEY, progress);
           badge.className = 'badge done';
           badge.textContent = '✔ 已完成';
+          badge.title = '完成于 ' + st.dates[ex.id];
           renderSidebar(ch.id);
         });
       });

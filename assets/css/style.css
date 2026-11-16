@@ -233,6 +233,26 @@ table.data tr:nth-child(even) td { background: color-mix(in srgb, var(--panel-2)
 .btn.small { padding: 2px 9px; font-size: 12.5px; border-radius: 7px; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
 
+/* ---------------- 首页 · 本周时间线 ---------------- */
+.week-panel { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 12px; }
+.week-summary { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.week-summary b { color: var(--text); font-size: 15px; }
+.week-summary .week-sub { color: var(--muted); font-size: 12px; opacity: .8; }
+.week-chart { display: flex; gap: 8px; align-items: flex-end; height: 96px; }
+.wk-col { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.wk-num { font-size: 11px; color: var(--muted); min-height: 14px; line-height: 1; }
+.wk-barwrap { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.wk-bar {
+  width: 100%; max-width: 34px; margin: 0 auto; min-height: 3px;
+  border-radius: 5px 5px 2px 2px;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  transition: height .25s ease;
+}
+.wk-col.today .wk-bar { background: var(--accent); }
+.wk-day { font-size: 11px; color: var(--muted); }
+.wk-col.today .wk-day { color: var(--accent); font-weight: 700; }
+.wk-col.today .wk-num { color: var(--accent); font-weight: 700; }
+
 /* ---------------- 练习 ---------------- */
 .exercise { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); margin: 18px 0; box-shadow: var(--shadow); overflow: hidden; }
 .exercise-head {
@@ -243,6 +263,10 @@ table.data tr:nth-child(even) td { background: color-mix(in srgb, var(--panel-2)
   flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--accent);
   background: var(--accent-soft); border-radius: 6px; padding: 2px 8px;
 }
+.exercise-head .num.review { color: var(--tip); background: var(--tip-soft); }
+.review-sep { margin-top: 30px; border-top: 2px dashed var(--border); padding-top: 16px; }
+.review-sep .review-h { margin: 0 0 4px; font-size: 18px; }
+.review-sep .prose { margin: 0 0 4px; color: var(--muted); font-size: 14px; }
 .exercise-head h3 { margin: 0; font-size: 16.5px; flex: 1 1 auto; }
 .exercise-body { padding: 14px 16px 16px; }
 .exercise .prompt { margin: 0 0 10px; }
@@ -473,9 +497,9 @@ html[data-theme="dark"] .hero { background: linear-gradient(135deg, #1d3557, #27
   .app-header { gap: 8px; padding: 8px 10px; flex-wrap: wrap; }
   .app-header .logo { font-size: 16px; }
   .app-header .logo .snake { font-size: 19px; }
-  .top-nav { gap: 4px; }
-  .top-nav a { font-size: 13px; padding: 5px 9px; }
-  .theme-btn { font-size: 13px; padding: 5px 10px; }
+  .top-nav { gap: 3px; }
+  .top-nav a { font-size: 12.5px; padding: 4px 7px; }
+  .theme-btn { font-size: 12.5px; padding: 4px 8px; }
   .layout { padding: 12px 10px 60px; }
   .card { padding: 14px 12px; }
   .hero { padding: 16px 14px; }

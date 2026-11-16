@@ -889,5 +889,110 @@
     ]
   });
 
+  /* ======================= 复习挑战（每章 1 题，追加到 exercises 末尾） ======================= */
+  var REVIEWS = {
+    c1: [{
+      id: 'c1r1', review: true, title: '复习挑战：小票打印机',
+      prompt: '用 <code>print()</code> 打印一张三行小票：<br>1. <code>商品 | 单价 | 数量</code>（用 <code>sep=" | "</code> 连接三个内容）<br>2. <code>铅笔 | 2.5 | 4</code><br>3. <code>总计: 10.0 元</code>（直接写文字）',
+      starter: '# 打印三行小票\n',
+      hint: '逗号分隔的内容默认用空格连接，<code>sep=" | "</code> 可以换成「 | 」。第三行是纯文字，用引号包起来直接打印。',
+      solution: 'print("商品", "单价", "数量", sep=" | ")\nprint("铅笔", 2.5, 4, sep=" | ")\nprint("总计: 10.0 元")',
+      check: { type: 'output', expect: '商品 | 单价 | 数量\n铅笔 | 2.5 | 4\n总计: 10.0 元' }
+    }],
+    c2: [{
+      id: 'c2r1', review: true, title: '复习挑战：零花钱账单',
+      prompt: '下面两个值其实是文字：<code>price_text = "3.5"</code>、<code>count_text = "4"</code>。<br>先把它们转成 <code>float</code> 和 <code>int</code>，算出总额，再打印两行：<br><code>单价 3.5 元 × 4 支 = 14.0 元</code><br><code>AA 制每人: 7.0 元</code>',
+      starter: 'price_text = "3.5"\ncount_text = "4"\n\n# 转类型 → 算总额 → 用 f-string 打印两行\n',
+      hint: '字符串之间不能直接相乘，先 <code>float(price_text)</code>、<code>int(count_text)</code>；除法结果一定是浮点数，所以会显示 <code>7.0</code>。',
+      solution: 'price_text = "3.5"\ncount_text = "4"\n\nprice = float(price_text)\ncount = int(count_text)\ntotal = price * count\n\nprint(f"单价 {price} 元 × {count} 支 = {total} 元")\nprint(f"AA 制每人: {total / 2} 元")',
+      check: { type: 'output', expect: '单价 3.5 元 × 4 支 = 14.0 元\nAA 制每人: 7.0 元' }
+    }],
+    c3: [{
+      id: 'c3r1', review: true, title: '复习挑战：秒数拆成时分秒',
+      prompt: '给定 <code>total = 3671</code>（秒），用 <code>//</code> 和 <code>%</code> 算出 1 小时 1 分 11 秒，并按 <code>1 小时 1 分 11 秒</code> 打印。',
+      starter: 'total = 3671\n\n# 算出 时、分、秒\n',
+      hint: '<code>total // 3600</code> 得小时；<code>total % 3600</code> 是剩下的秒数，再 <code>// 60</code> 得分钟；<code>total % 60</code> 是最后的秒。',
+      solution: 'total = 3671\n\nhours = total // 3600\nminutes = total % 3600 // 60\nseconds = total % 60\n\nprint(hours, "小时", minutes, "分", seconds, "秒")',
+      check: { type: 'output', expect: '1 小时 1 分 11 秒' }
+    }],
+    c4: [{
+      id: 'c4r1', review: true, title: '复习挑战：奖学金评定',
+      prompt: '成绩 <code>score = 87</code>，竞赛获奖（<code>bonus = True</code>）可以加 3 分。<br>先算最终成绩，再评级：≥90 优秀、≥75 良好、≥60 及格、否则 加油。打印两行：<br><code>最终成绩: 90</code><br><code>等级: 优秀</code>',
+      starter: 'score = 87\nbonus = True\n\n# 有 bonus 就 +3，再评级\n',
+      hint: '先 <code>if bonus:</code> 加分；评级用 <code>if / elif / else</code>，判断顺序要从高分往低分写。',
+      solution: 'score = 87\nbonus = True\n\nfinal = score\nif bonus:\n    final = score + 3\n\nif final >= 90:\n    level = "优秀"\nelif final >= 75:\n    level = "良好"\nelif final >= 60:\n    level = "及格"\nelse:\n    level = "加油"\n\nprint("最终成绩:", final)\nprint("等级:", level)',
+      check: { type: 'output', expect: '最终成绩: 90\n等级: 优秀' }
+    }],
+    c5: [{
+      id: 'c5r1', review: true, title: '复习挑战：7 的倍数之和',
+      prompt: '用 <code>for</code> 循环找出 1~100 里所有 7 的倍数，把它们加起来，打印 <code>1~100 中 7 的倍数之和: 735</code>（先自己算一遍验证哦）。',
+      starter: 'total = 0\n# 遍历 1~100，是 7 的倍数就累加\n',
+      hint: '<code>range(1, 101)</code> 包含 1 到 100；<code>n % 7 == 0</code> 判断倍数；<code>total += n</code> 累加。',
+      solution: 'total = 0\nfor n in range(1, 101):\n    if n % 7 == 0:\n        total += n\n\nprint("1~100 中 7 的倍数之和:", total)',
+      check: { type: 'output', expect: '1~100 中 7 的倍数之和: 735' }
+    }],
+    c6: [{
+      id: 'c6r1', review: true, title: '复习挑战：回文检测器',
+      prompt: '回文是正着读反着读都一样的句子。判断这两句（忽略空格和大小写）：<br><code>上海自来水来自海上</code><br><code>Never odd or even</code><br>是回文打印「句子 是回文」，否则「句子 不是回文」，共 2 行。',
+      starter: 'sentences = ["上海自来水来自海上", "Never odd or even"]\n\nfor s in sentences:\n    # 去掉空格、转小写，再和反转后的自己比较\n    pass\n',
+      hint: '<code>s.replace(" ", "").lower()</code> 得到干净的句子；<code>clean[::-1]</code> 是反转字符串；相等就是回文。',
+      solution: 'sentences = ["上海自来水来自海上", "Never odd or even"]\n\nfor s in sentences:\n    clean = s.replace(" ", "").lower()\n    if clean == clean[::-1]:\n        print(s, "是回文")\n    else:\n        print(s, "不是回文")',
+      check: { type: 'output', expect: '上海自来水来自海上 是回文\nNever odd or even 是回文' }
+    }],
+    c7: [{
+      id: 'c7r1', review: true, title: '复习挑战：成绩单',
+      prompt: '成绩列表 <code>[88, 95, 72, 90, 66]</code>：从高到低排序后打印列表，再打印平均分（四舍五入到 1 位小数）、最高分和最低分：<br><code>从高到低: [95, 90, 88, 72, 66]</code><br><code>平均分: 82.2</code><br><code>最高分: 95，最低分: 66</code>',
+      starter: 'scores = [88, 95, 72, 90, 66]\n\n# 排序 → 打印 → 统计\n',
+      hint: '<code>scores.sort(reverse=True)</code> 从大到小原地排序；平均分 <code>round(sum(scores) / len(scores), 1)</code>；排序后 <code>scores[0]</code> 最高、<code>scores[-1]</code> 最低。',
+      solution: 'scores = [88, 95, 72, 90, 66]\nscores.sort(reverse=True)\n\nprint("从高到低:", scores)\nprint("平均分:", round(sum(scores) / len(scores), 1))\nprint(f"最高分: {scores[0]}，最低分: {scores[-1]}")',
+      check: { type: 'output', expect: '从高到低: [95, 90, 88, 72, 66]\n平均分: 82.2\n最高分: 95，最低分: 66' }
+    }],
+    c8: [{
+      id: 'c8r1', review: true, title: '复习挑战：词频统计小能手',
+      prompt: '统计 <code>apple banana apple cherry banana apple</code> 里每个单词出现的次数，按单词字母顺序输出「单词 次数」，共 3 行。',
+      starter: 'text = "apple banana apple cherry banana apple"\ncounts = {}\n\n# 统计 → 按字母顺序打印\n',
+      hint: '<code>text.split()</code> 切成单词；<code>counts[w] = counts.get(w, 0) + 1</code> 累加；<code>sorted(counts.items())</code> 按键排序后遍历。',
+      solution: 'text = "apple banana apple cherry banana apple"\ncounts = {}\nfor w in text.split():\n    counts[w] = counts.get(w, 0) + 1\n\nfor w, c in sorted(counts.items()):\n    print(w, c)',
+      check: { type: 'output', expect: 'apple 3\nbanana 2\ncherry 1' }
+    }],
+    c9: [{
+      id: 'c9r1', review: true, title: '复习挑战：打折计算器',
+      prompt: '写函数 <code>final_price(price, discount=0.8)</code>：满 100 元打 <code>discount</code> 折（默认 8 折），不满 100 按原价，结果四舍五入到 1 位小数。<br>然后调用三次并打印结果：<code>final_price(120)</code>、<code>final_price(80)</code>、<code>final_price(200, 0.5)</code>。<br>期望依次输出 <code>96.0</code>、<code>80</code>、<code>100.0</code>。',
+      starter: 'def final_price(price, discount=0.8):\n    pass\n\n# 调用三次并打印\n',
+      hint: '默认参数写在函数定义里；<code>if price >= 100:</code> 才返回 <code>round(price * discount, 1)</code>，否则原样返回。',
+      solution: 'def final_price(price, discount=0.8):\n    if price >= 100:\n        return round(price * discount, 1)\n    return price\n\nprint(final_price(120))\nprint(final_price(80))\nprint(final_price(200, 0.5))',
+      check: { type: 'output', expect: '96.0\n80\n100.0' }
+    }],
+    c10: [{
+      id: 'c10r1', review: true, title: '复习挑战：名字和分数配配对',
+      prompt: '用 <code>zip()</code> 把名字和分数配对：<br>1. 用列表推导式筛出 ≥80 分的人名，打印 <code>80 分以上: [\'小明\', \'小红\']</code><br>2. 用 <code>enumerate</code> 打印带编号的完整名单（每行 <code>1. 小明: 88</code> 这种格式）',
+      starter: 'names = ["小明", "小红", "小刚"]\nscores = [88, 95, 72]\n\n# zip → 列表推导式 → enumerate\n',
+      hint: '<code>pairs = list(zip(names, scores))</code>；推导式 <code>[name for name, score in pairs if score >= 80]</code>；<code>enumerate(pairs, 1)</code> 编号从 1 开始。',
+      solution: 'names = ["小明", "小红", "小刚"]\nscores = [88, 95, 72]\n\npairs = list(zip(names, scores))\nhigh = [name for name, score in pairs if score >= 80]\nprint("80 分以上:", high)\n\nfor i, pair in enumerate(pairs, 1):\n    name, score = pair\n    print(f"{i}. {name}: {score}")',
+      check: { type: 'output', expect: "80 分以上: ['小明', '小红']\n1. 小明: 88\n2. 小红: 95\n3. 小刚: 72" }
+    }],
+    c11: [{
+      id: 'c11r1', review: true, title: '复习挑战：健壮的求和器',
+      prompt: '列表 <code>["12", "abc", "3.5", "7"]</code> 里有能转成整数的，也有不能的。<br>逐个尝试转 <code>int</code> 并累加；失败的打印 <code>跳过：xxx 不是整数</code>。最后打印 <code>合计: 19</code>。',
+      starter: 'values = ["12", "abc", "3.5", "7"]\ntotal = 0\n\n# try / except ValueError\n',
+      hint: '把 <code>int(v)</code> 放进 <code>try</code>，<code>except ValueError:</code> 里打印提示并继续循环；循环结束后打印合计。',
+      solution: 'values = ["12", "abc", "3.5", "7"]\n\ntotal = 0\nfor v in values:\n    try:\n        total += int(v)\n    except ValueError:\n        print(f"跳过：{v} 不是整数")\n\nprint("合计:", total)',
+      check: { type: 'output', expect: '跳过：abc 不是整数\n跳过：3.5 不是整数\n合计: 19' }
+    }],
+    c12: [{
+      id: 'c12r1', review: true, title: '复习挑战：动物音乐会',
+      prompt: '定义基类 <code>Animal</code>：<code>__init__</code> 保存 name，<code>speak()</code> 返回 <code>"..."</code>，<code>__str__</code> 返回「名字 说 叫声」。<br>再定义 <code>Dog</code> 和 <code>Cat</code> 继承它，分别让 <code>speak()</code> 返回 <code>汪汪</code> 和 <code>喵喵</code>。循环打印 <code>Dog("旺财")</code> 和 <code>Cat("咪咪")</code>，期望两行：<code>旺财 说 汪汪</code>、<code>咪咪 说 喵喵</code>。',
+      starter: 'class Animal:\n    def __init__(self, name):\n        pass\n\n    def speak(self):\n        return "..."\n\n    def __str__(self):\n        pass\n\nclass Dog(Animal):\n    pass\n\nclass Cat(Animal):\n    pass\n\nfor a in [Dog("旺财"), Cat("咪咪")]:\n    print(a)\n',
+      hint: '子类只需要重写 <code>speak()</code>；父类的 <code>__str__</code> 用 <code>f"{self.name} 说 {self.speak()}"</code>，运行时会自动调用子类的版本。',
+      solution: 'class Animal:\n    def __init__(self, name):\n        self.name = name\n\n    def speak(self):\n        return "..."\n\n    def __str__(self):\n        return f"{self.name} 说 {self.speak()}"\n\nclass Dog(Animal):\n    def speak(self):\n        return "汪汪"\n\nclass Cat(Animal):\n    def speak(self):\n        return "喵喵"\n\nfor a in [Dog("旺财"), Cat("咪咪")]:\n    print(a)',
+      check: { type: 'output', expect: '旺财 说 汪汪\n咪咪 说 喵喵' }
+    }]
+  };
+
+  chapters.forEach(function (ch) {
+    var list = REVIEWS[ch.id];
+    if (list) list.forEach(function (ex) { ch.exercises.push(ex); });
+  });
+
   global.PY_COURSE = { chapters: chapters };
 })(typeof window !== 'undefined' ? window : globalThis);
