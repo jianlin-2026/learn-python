@@ -1270,7 +1270,7 @@
     var hmodeNote = el('span', 'heat-mode-note', '');
     hlegend.appendChild(hmodeNote);
     hm.appendChild(hlegend);
-    hm.appendChild(el('p', 'heat-note', '学习时长：课程页 / 练习场在前台且有操作时累计，每 10 秒记一次。点有完成记录的格子可查看当天。'));
+    hm.appendChild(el('p', 'heat-note', '学习时长从本版本开始累计：课程页 / 练习场在前台且有操作时每 10 秒记一次。点有完成记录的格子可查看当天。'));
     view.appendChild(hm);
 
     function applyHeatMode(mode, persist) {
