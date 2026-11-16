@@ -1058,6 +1058,7 @@
       toast(cb.checked ? '已开启：有到期错题时会在首页提醒' : '已关闭首页的到期错题提醒');
     });
     togg.appendChild(cb);
+    togg.appendChild(el('span', 'switch-ui'));
     togg.appendChild(el('span', null, '在首页显示到期错题提醒'));
     head.appendChild(togg);
     if (list.length) {
