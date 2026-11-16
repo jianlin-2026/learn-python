@@ -97,6 +97,7 @@ validate.html           开发用：课程内容校验（跑通全部示例与�
 
 - 全部为普通 `<script>`（无 ES module），保证 `file://` 下可直接打开；脚本顺序：
   `pylexer → pyparser → pyvalues → pybuiltins → pyinterp → content → cheatsheet → editor → app`。
+- 修改前端资源后，可把 `index.html` 里 `?v=20261116` 的版本号改成新的日期，避免浏览器继续使用旧缓存。
 - 修改引擎后打开 `tests.html` 查看自测结果（应当全绿）。
 - 修改课程内容后打开 `validate.html`，它会自动运行每个 `sections[].code` 与每道练习的 `solution`，比对期望输出并列出不一致之处。
 - 新增章节：在 `assets/js/content.js` 中 `chapters.push({...})`，结构为
