@@ -545,7 +545,7 @@
     if (due.length) {
       var rem = el('a', 'review-remind');
       rem.href = '#/mistakes';
-      rem.innerHTML = '📕 <b>' + due.length + '</b> 道错题到期了，隔天复习效果最好 <span>去复习 →</span>';
+      rem.innerHTML = '<span class="rr-text">📕 <b>' + due.length + '</b> 道错题到期了，隔天复习效果最好</span><span class="rr-go">去复习 →</span>';
       weekBox.appendChild(rem);
     }
 

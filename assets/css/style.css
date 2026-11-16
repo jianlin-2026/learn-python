@@ -268,15 +268,19 @@ table.data tr:nth-child(even) td { background: color-mix(in srgb, var(--panel-2)
 .goal-ok { color: var(--ok); font-weight: 700; }
 .week-next-badge { margin-top: 4px; font-size: 12.5px; color: var(--muted); }
 .review-remind {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  display: flex; align-items: center; gap: 10px;
   margin-top: 10px; padding: 9px 12px; border-radius: 9px; text-decoration: none;
   color: var(--text); font-size: 13.5px;
   background: color-mix(in srgb, #e8a33d 14%, var(--panel));
   border: 1px solid color-mix(in srgb, #e8a33d 40%, var(--border));
 }
+.review-remind .rr-text { flex: 1 1 auto; }
 .review-remind b { color: #b06a00; font-size: 15px; }
-.review-remind span { color: var(--accent); font-weight: 600; white-space: nowrap; }
+.review-remind .rr-go { color: var(--accent); font-weight: 600; white-space: nowrap; }
 .review-remind:hover { filter: brightness(1.03); text-decoration: none; }
+html[data-theme="dark"] .review-remind b,
+html[data-theme="dark"] .due-tag,
+html[data-theme="dark"] .due-count { color: #f0b45a; }
 
 /* ---------------- 学习记录页 ---------------- */
 .goal-line { font-size: 14.5px; margin-bottom: 8px; }
