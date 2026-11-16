@@ -189,6 +189,7 @@
     });
     return list;
   }
+  function remindOn() { return progress.remindDue !== false; }
   function checkBadges(streakVal) {
     if (!progress.badges) progress.badges = {};
     var newly = [];
@@ -223,6 +224,181 @@
     if (!list.length) return;
     toast('🎉 解锁徽章：' + list.map(function (b) { return b.days + ' 天「' + b.name + '」'; }).join('、'));
   }
+
+  /* ---------------- 徽章分享图 ---------------- */
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function drawShareCard() {
+    var W = 1080, H = 1350;
+    var cv = document.createElement('canvas');
+    cv.width = W;
+    cv.height = H;
+    var ctx = cv.getContext('2d');
+    var font = '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif';
+
+    var g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, '#16233f');
+    g.addColorStop(.5, '#1f3358');
+    g.addColorStop(1, '#33265a');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.globalAlpha = .1;
+    ctx.fillStyle = '#7fb3ff';
+    ctx.beginPath(); ctx.arc(980, 90, 240, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffd43b';
+    ctx.beginPath(); ctx.arc(90, 1260, 260, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.font = '600 34px ' + font;
+    ctx.fillText('🐍 学 Python', 80, 112);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.font = '400 26px ' + font;
+    ctx.fillText('互动教程 · 打卡分享', 1000, 110);
+    ctx.textAlign = 'left';
+    ctx.strokeStyle = 'rgba(255,255,255,.16)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(80, 156); ctx.lineTo(1000, 156); ctx.stroke();
+
+    var streak = streakStats(getGoal());
+    var stats = totalStats();
+    var unlocked = progress.badges || {};
+    var got = BADGES.filter(function (b) { return !!unlocked[b.days]; }).length;
+
+    ctx.fillStyle = 'rgba(255,255,255,.68)';
+    ctx.font = '500 40px ' + font;
+    ctx.fillText('连续打卡', 82, 300);
+
+    ctx.fillStyle = '#ffd43b';
+    ctx.font = '800 190px ' + font;
+    ctx.fillText(String(streak.current), 76, 490);
+    var nw = ctx.measureText(String(streak.current)).width;
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.font = '700 58px ' + font;
+    ctx.fillText('天', 76 + nw + 22, 480);
+
+    ctx.fillStyle = 'rgba(255,255,255,.78)';
+    ctx.font = '500 32px ' + font;
+    ctx.fillText('最长连续 ' + streak.best + ' 天 · 已完成 ' + stats.done + ' / ' + stats.all + ' 道练习', 82, 570);
+    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.font = '400 24px ' + font;
+    ctx.fillText('每日目标 ' + getGoal() + ' 题 · 已解锁 ' + got + ' / ' + BADGES.length + ' 枚徽章', 82, 612);
+
+    roundRect(ctx, 60, 650, 960, 570, 36);
+    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.1)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,.62)';
+    ctx.font = '600 28px ' + font;
+    ctx.fillText('我的徽章', 100, 710);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.font = '400 24px ' + font;
+    ctx.fillText(got + ' / ' + BADGES.length + ' 已解锁', 980, 710);
+    ctx.textAlign = 'left';
+
+    var size = 150, gapX = 40, startX = 180, startY = 748, pitchY = 215;
+    BADGES.forEach(function (b, i) {
+      var col = i % 4, row = Math.floor(i / 4);
+      var x = startX + col * (size + gapX);
+      var y = startY + row * pitchY;
+      var has = !!unlocked[b.days];
+      ctx.beginPath();
+      ctx.arc(x + size / 2, y + size / 2, size / 2 - 2, 0, Math.PI * 2);
+      ctx.fillStyle = has ? 'rgba(255,212,59,.14)' : 'rgba(255,255,255,.05)';
+      ctx.fill();
+      ctx.strokeStyle = has ? 'rgba(255,212,59,.75)' : 'rgba(255,255,255,.15)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.globalAlpha = has ? 1 : .25;
+      ctx.font = '64px "Segoe UI Emoji", "Apple Color Emoji", ' + font;
+      ctx.fillText(b.icon, x + size / 2, y + size / 2 + 3);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = has ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.38)';
+      ctx.font = '500 24px ' + font;
+      ctx.fillText(b.name, x + size / 2, y + size + 28);
+      ctx.fillStyle = has ? 'rgba(255,212,59,.9)' : 'rgba(255,255,255,.28)';
+      ctx.font = '400 20px ' + font;
+      ctx.fillText('连续 ' + b.days + ' 天', x + size / 2, y + size + 56);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+    });
+
+    ctx.strokeStyle = 'rgba(255,255,255,.16)';
+    ctx.beginPath(); ctx.moveTo(80, 1262); ctx.lineTo(1000, 1262); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.78)';
+    ctx.font = '500 28px ' + font;
+    ctx.fillText('每天进步一点点，Python 越写越顺手。', 80, 1308);
+    ctx.fillStyle = 'rgba(255,255,255,.42)';
+    ctx.font = '400 23px ' + font;
+    ctx.fillText('jianlin-2026.github.io/learn-python', 80, 1340);
+    ctx.textAlign = 'right';
+    ctx.fillText(todayStr(), 1000, 1340);
+    ctx.textAlign = 'left';
+
+    return cv;
+  }
+  function saveShareCard(canvas) {
+    var a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = 'python-streak-' + todayStr() + '.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+  var shareDom = null;
+  function closeShare() {
+    if (!shareDom) return;
+    if (shareDom.overlay.parentNode) shareDom.overlay.parentNode.removeChild(shareDom.overlay);
+    document.removeEventListener('keydown', shareKey);
+    shareDom = null;
+  }
+  function shareKey(e) {
+    if (e.key === 'Escape') closeShare();
+  }
+  function openShare() {
+    closeShare();
+    var canvas = drawShareCard();
+    canvas.className = 'share-canvas';
+    var overlay = el('div', 'share-overlay');
+    var panel = el('div', 'share-panel');
+    var head = el('div', 'share-head');
+    head.appendChild(el('b', null, '📸 徽章分享图'));
+    var closeBtn = el('button', 'btn small ghost', '✕ 关闭');
+    closeBtn.addEventListener('click', closeShare);
+    head.appendChild(closeBtn);
+    panel.appendChild(head);
+    panel.appendChild(canvas);
+    var actions = el('div', 'share-actions');
+    var saveBtn = el('button', 'btn primary', '⬇ 保存图片');
+    saveBtn.addEventListener('click', function () {
+      saveShareCard(canvas);
+      toast('已生成 PNG，请查看浏览器下载');
+    });
+    actions.appendChild(saveBtn);
+    actions.appendChild(el('span', 'share-hint', '1080 × 1350 PNG · 可直接发朋友圈或打卡群'));
+    panel.appendChild(actions);
+    overlay.appendChild(panel);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeShare(); });
+    document.body.appendChild(overlay);
+    shareDom = { overlay: overlay };
+    document.addEventListener('keydown', shareKey);
+  }
+
   function findEx(exId) {
     for (var i = 0; i < COURSE.chapters.length; i++) {
       var ch = COURSE.chapters[i];
@@ -542,7 +718,7 @@
     weekBox.appendChild(nbLine);
 
     var due = dueMistakes().filter(function (x) { return x.due; });
-    if (due.length) {
+    if (due.length && remindOn()) {
       var rem = el('a', 'review-remind');
       rem.href = '#/mistakes';
       rem.innerHTML = '<span class="rr-text">📕 <b>' + due.length + '</b> 道错题到期了，隔天复习效果最好</span><span class="rr-go">去复习 →</span>';
@@ -614,11 +790,24 @@
   }
 
   /* ---------------- 学习记录（按日流水） ---------------- */
-  function renderHistory(dateFocus) {
+  function renderHistory(focusArg) {
     var view = document.getElementById('view');
     view.innerHTML = '';
     setNav('home');
     renderSidebar(null);
+
+    var nowYear = new Date().getFullYear();
+    var hmYear = nowYear;
+    var dateFocus = '';
+    if (focusArg) {
+      var fs = String(focusArg);
+      if (/^\d{4}$/.test(fs)) {
+        hmYear = parseInt(fs, 10);
+      } else {
+        dateFocus = fs;
+        if (/^\d{4}-/.test(fs)) hmYear = parseInt(fs.slice(0, 4), 10);
+      }
+    }
 
     var head = el('div', 'card');
     head.appendChild(el('h1', 'page-title', '📅 学习记录'));
@@ -655,7 +844,7 @@
     sel.addEventListener('change', function () {
       progress.goal = parseInt(sel.value, 10) || 1;
       saveJSON(STORE_KEY, progress);
-      renderHistory(dateFocus);
+      renderHistory(focusArg);
     });
     ctl.appendChild(sel);
     gc.appendChild(ctl);
@@ -684,6 +873,11 @@
     var bsub = el('p', 'prose');
     bsub.innerHTML = '已解锁 <b>' + got + '</b> / ' + BADGES.length + ' 枚。连续打卡达到天数会自动解锁；之后调整目标，已获得的徽章不会收回。';
     bc.appendChild(bsub);
+    var shareRow = el('div', 'btn-row');
+    var shareBtn = el('button', 'btn small primary', '📸 生成分享图');
+    shareBtn.addEventListener('click', openShare);
+    shareRow.appendChild(shareBtn);
+    bc.appendChild(shareRow);
     var bgrid = el('div', 'badge-grid');
     BADGES.forEach(function (b) {
       var has = !!unlocked[b.days];
@@ -701,6 +895,100 @@
     });
     bc.appendChild(bgrid);
     view.appendChild(bc);
+
+    /* 年度学习热力图 */
+    var hm = el('div', 'card');
+    var hmtop = el('div', 'heat-top');
+    hmtop.appendChild(el('h2', 'section-h', '🗓 学习热力图'));
+    var hnav = el('div', 'heat-nav');
+    var prevY = el('a', 'btn small ghost', '‹');
+    prevY.href = '#/history/' + (hmYear - 1);
+    prevY.title = (hmYear - 1) + ' 年';
+    hnav.appendChild(prevY);
+    hnav.appendChild(el('b', 'heat-year', hmYear + ' 年'));
+    if (hmYear < nowYear) {
+      var nextY = el('a', 'btn small ghost', '›');
+      nextY.href = '#/history/' + (hmYear + 1);
+      nextY.title = (hmYear + 1) + ' 年';
+      hnav.appendChild(nextY);
+    } else {
+      hnav.appendChild(el('span', 'btn small ghost disabled', '›'));
+    }
+    hmtop.appendChild(hnav);
+    hm.appendChild(hmtop);
+
+    var hStart = new Date(hmYear, 0, 1);
+    var hEnd = new Date(hmYear, 11, 31);
+    var hOffset = (hStart.getDay() + 6) % 7;
+    var hDays = Math.round((hEnd.getTime() - hStart.getTime()) / 86400000) + 1;
+    var hWeeks = Math.ceil((hOffset + hDays) / 7);
+    var yearDone = 0, activeDays = 0;
+    var wkCols = ['一', '二', '三', '四', '五', '六', '日'];
+
+    var hsum = el('div', 'heat-sum');
+    var monthsRow = el('div', 'heat-months');
+    monthsRow.style.gridTemplateColumns = 'repeat(' + hWeeks + ', 12px)';
+    for (var mi = 0; mi < 12; mi++) {
+      var mfirst = new Date(hmYear, mi, 1);
+      var moff = Math.round((mfirst.getTime() - hStart.getTime()) / 86400000) + hOffset;
+      var mlabel = el('span', null, (mi + 1) + ' 月');
+      mlabel.style.gridColumn = (Math.floor(moff / 7) + 1) + ' / span 3';
+      monthsRow.appendChild(mlabel);
+    }
+
+    var hgrid = el('div', 'heat-grid');
+    hgrid.style.gridTemplateColumns = 'repeat(' + hWeeks + ', 12px)';
+    for (var hp = 0; hp < hOffset; hp++) hgrid.appendChild(el('div', 'heat-cell empty'));
+    for (var hd = 0; hd < hDays; hd++) {
+      var hdt = new Date(hmYear, 0, 1 + hd);
+      var hkey = fmtDate(hdt);
+      var hcnt = (map[hkey] || []).length;
+      var hcell = el('div', 'heat-cell' + (hcnt ? ' has' : ''));
+      hcell.setAttribute('data-l', hcnt === 0 ? 0 : (hcnt >= 4 ? 4 : hcnt));
+      hcell.title = hkey + '（周' + wkCols[(hdt.getDay() + 6) % 7] + '）：' + (hcnt ? hcnt + ' 题' : '没有记录');
+      if (hcnt) {
+        yearDone += hcnt;
+        activeDays += 1;
+        (function (kk) {
+          hcell.addEventListener('click', function () { global.location.hash = '#/history/' + kk; });
+        })(hkey);
+      }
+      hgrid.appendChild(hcell);
+    }
+    var hPadEnd = hWeeks * 7 - hOffset - hDays;
+    for (var he = 0; he < hPadEnd; he++) hgrid.appendChild(el('div', 'heat-cell empty'));
+
+    hsum.innerHTML = hmYear + ' 年完成 <b>' + yearDone + '</b> 题 · 活跃 <b>' + activeDays + '</b> 天' +
+      (yearDone ? ' · 点格子可查看当天' : '');
+    hm.appendChild(hsum);
+
+    var hframe = el('div', 'heat-frame');
+    var hwd = el('div', 'heat-weekdays');
+    ['一', '', '三', '', '五', '', ''].forEach(function (t) { hwd.appendChild(el('span', null, t)); });
+    hframe.appendChild(hwd);
+    var hscroll = el('div', 'heat-scroll');
+    var hinner = el('div', 'heat-inner');
+    var hbody = el('div', 'heat-body');
+    hbody.appendChild(monthsRow);
+    hbody.appendChild(hgrid);
+    hinner.appendChild(hbody);
+    hscroll.appendChild(hinner);
+    hframe.appendChild(hscroll);
+    hm.appendChild(hframe);
+
+    var hlegend = el('div', 'heat-legend');
+    hlegend.appendChild(el('span', null, '少'));
+    [0, 1, 2, 3, 4].forEach(function (l) {
+      var lc = el('span', 'heat-cell');
+      lc.setAttribute('data-l', l);
+      hlegend.appendChild(lc);
+    });
+    hlegend.appendChild(el('span', null, '多'));
+    hm.appendChild(hlegend);
+    view.appendChild(hm);
+    if (hmYear === nowYear) {
+      global.setTimeout(function () { hscroll.scrollLeft = hscroll.scrollWidth; }, 0);
+    }
 
     var listCard = el('div', 'card');
     listCard.appendChild(el('h2', 'section-h', '完成流水账'));
@@ -759,6 +1047,19 @@
     var head = el('div', 'card');
     head.appendChild(el('h1', 'page-title', '📕 错题本'));
     head.appendChild(el('p', 'page-sub', '「检查答案」没通过的题会自动收进来，做对后自动移出。到期的错题排在前面——隔一天再来，效果更好。'));
+    var togg = el('label', 'switch-row');
+    togg.title = '只在打开网站时显示首页提醒，不会发送系统通知';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = remindOn();
+    cb.addEventListener('change', function () {
+      progress.remindDue = cb.checked;
+      saveJSON(STORE_KEY, progress);
+      toast(cb.checked ? '已开启：有到期错题时会在首页提醒' : '已关闭首页的到期错题提醒');
+    });
+    togg.appendChild(cb);
+    togg.appendChild(el('span', null, '在首页显示到期错题提醒'));
+    head.appendChild(togg);
     if (list.length) {
       var clearBtn = el('button', 'btn ghost small', '🧹 清空错题本');
       clearBtn.addEventListener('click', function () {
