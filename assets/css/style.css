@@ -114,6 +114,13 @@ code, pre, .mono { font-family: var(--mono); }
 }
 .top-nav a:hover { background: var(--bg-soft); color: var(--text); text-decoration: none; }
 .top-nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav-badge {
+  display: inline-block; margin-left: 4px; min-width: 16px; padding: 0 5px;
+  font-size: 11px; line-height: 16px; text-align: center; font-weight: 700;
+  color: #fff; background: #e5484d; border-radius: 999px;
+}
+.nav-badge[hidden] { display: none; }
+.top-nav a.active .nav-badge { color: #fff; }
 .theme-btn, .menu-btn {
   border: 1px solid var(--border); background: var(--panel); color: var(--text);
   border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 14px;
@@ -252,6 +259,66 @@ table.data tr:nth-child(even) td { background: color-mix(in srgb, var(--panel-2)
 .wk-day { font-size: 11px; color: var(--muted); }
 .wk-col.today .wk-day { color: var(--accent); font-weight: 700; }
 .wk-col.today .wk-num { color: var(--accent); font-weight: 700; }
+.wk-col.clickable { cursor: pointer; }
+.wk-col.clickable:hover .wk-bar { filter: brightness(1.08); }
+.week-link { color: var(--accent); text-decoration: none; font-size: 12.5px; }
+.week-link:hover { text-decoration: underline; }
+.week-goal { margin-top: 10px; font-size: 13px; color: var(--muted); }
+.week-goal b { color: var(--text); }
+.goal-ok { color: var(--ok); font-weight: 700; }
+
+/* ---------------- 学习记录页 ---------------- */
+.goal-line { font-size: 14.5px; margin-bottom: 8px; }
+.goal-controls { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; }
+.goal-controls select {
+  padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel); color: var(--text); font-size: 14px;
+}
+.goal-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.goal-chip {
+  display: flex; align-items: center; gap: 9px; padding: 10px 12px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+}
+.goal-chip .gc-icon { font-size: 19px; }
+.goal-chip .gc-col { display: flex; flex-direction: column; line-height: 1.25; }
+.goal-chip .gc-val { font-size: 17px; font-weight: 700; color: var(--text); }
+.goal-chip .gc-label { font-size: 11.5px; color: var(--muted); }
+.day-group { border-top: 1px dashed var(--border); padding: 14px 0 8px; }
+.day-group:first-of-type { border-top: 0; padding-top: 4px; }
+.day-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.day-head b { font-size: 15px; }
+.day-head .day-week { color: var(--muted); font-size: 13px; }
+.day-head .badge { margin-left: auto; }
+.day-list { list-style: none; margin: 0; padding: 0; }
+.day-list li a {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px;
+  color: var(--text); text-decoration: none; font-size: 14px;
+}
+.day-list li a:hover { background: var(--bg-soft); }
+.day-list .di-icon { flex: none; }
+.day-list .di-title { flex: 1 1 auto; }
+.day-list .di-tag {
+  flex: none; font-size: 11px; color: var(--tip); background: var(--tip-soft);
+  border-radius: 5px; padding: 1px 6px;
+}
+.day-list .di-ch { flex: none; font-size: 12px; color: var(--muted); max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.day-empty { color: var(--muted); padding: 16px 2px; line-height: 2; }
+
+/* ---------------- 错题本 ---------------- */
+.mistake-item { border-top: 1px dashed var(--border); padding: 14px 0; }
+.mistake-item:first-of-type { border-top: 0; }
+.mi-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15.5px; }
+.mi-head .mi-icon { flex: none; }
+.mi-path { margin-left: auto; font-size: 12px; color: var(--muted); }
+.mi-meta { font-size: 13px; color: var(--muted); margin: 4px 0 2px; }
+.mistake-item details { margin: 6px 0 2px; }
+.mistake-item summary { cursor: pointer; font-size: 13px; color: var(--accent); }
+.wrong-code {
+  margin: 8px 0 0; padding: 10px 12px; max-height: 220px; overflow: auto;
+  background: var(--code-bg); color: var(--code-text); border: 1px solid var(--border);
+  border-radius: 8px; font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap;
+}
+.mistake-empty { color: var(--muted); padding: 18px 2px; line-height: 1.9; font-size: 15px; }
 
 /* ---------------- 练习 ---------------- */
 .exercise { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); margin: 18px 0; box-shadow: var(--shadow); overflow: hidden; }
@@ -500,6 +567,12 @@ html[data-theme="dark"] .hero { background: linear-gradient(135deg, #1d3557, #27
   .top-nav { gap: 3px; }
   .top-nav a { font-size: 12.5px; padding: 4px 7px; }
   .theme-btn { font-size: 12.5px; padding: 4px 8px; }
+  #searchBtn .btn-txt, #themeBtn .btn-txt { display: none; }
+  #searchBtn { padding: 5px 10px; }
+  #themeBtn { padding: 5px 10px; }
+  #searchBtn::before { content: '🔍'; }
+  #themeBtn::before { content: '🌙'; }
+  html[data-theme="dark"] #themeBtn::before { content: '☀️'; }
   .layout { padding: 12px 10px 60px; }
   .card { padding: 14px 12px; }
   .hero { padding: 16px 14px; }
